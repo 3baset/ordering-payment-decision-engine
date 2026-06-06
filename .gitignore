@@ -1,0 +1,39 @@
+# Simulation engine — full dataset (too large for git)
+simulation_engine/output/
+simulation_engine/__pycache__/
+simulation_engine/**/__pycache__/
+simulation_engine/**/*.pyc
+
+# Raw archive
+files.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+.venv
+venv/
+
+# AWS / CDK
+cdk.out/
+.cdk.staging/
+node_modules/
+*.js.map
+cdk.context.json
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Credentials — never commit
+*.pem
+*.key
+credentials
+.aws/credentials
