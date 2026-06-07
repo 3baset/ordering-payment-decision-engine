@@ -1,5 +1,5 @@
 """
-Decision Lambda — triggered by DynamoDB Streams INSERT events on maxab-orders.
+Decision Lambda — triggered by DynamoDB Streams INSERT events on oda-orders.
 
 Reads order + customer context, applies 3-factor scoring:
   1. Customer LTV tier  (RFM segment → weight 0.40)

@@ -8,8 +8,8 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 # Bootstrap Lambda environment variables before importing handler
-os.environ["ORDERS_TABLE"]       = "maxab-orders"
-os.environ["ACTION_LOG_TABLE"]   = "maxab-action-log"
+os.environ["ORDERS_TABLE"]       = "oda-orders"
+os.environ["ACTION_LOG_TABLE"]   = "oda-action-log"
 os.environ["LOG_LEVEL"]          = "WARNING"
 os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 os.environ["AWS_ACCESS_KEY_ID"]  = "testing"

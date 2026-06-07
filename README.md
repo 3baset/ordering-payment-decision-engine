@@ -1,6 +1,6 @@
-# MaxAB Growth Lead — Case Study
+# ODA — Ordering Decisioning Agent
 
-Synthetic FMCG wholesale data platform for the MaxAB Growth Lead Assessment.
+Synthetic FMCG wholesale data platform and AWS event-driven ordering decisioning pipeline.
 Contains a full simulation engine, a config-driven data sampler, interactive
 dashboards, and two pre-generated 100k-order holdout samples ready for
 analysis.
@@ -10,7 +10,7 @@ analysis.
 ## Repository Layout
 
 ```
-maxab-case-study/
+ordering-payment-decision-engine/
 ├── simulation_engine/          # Discrete-event simulation (SimPy + DuckDB + Polars)
 │   ├── simulation_runner.py    # Entry point
 │   ├── config/                 # YAML config + deterministic seeds

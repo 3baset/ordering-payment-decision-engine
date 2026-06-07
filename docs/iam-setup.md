@@ -1,12 +1,12 @@
 # Evaluator IAM Access — Setup & Sharing
 
-The CDK stack creates a read-only IAM user (`maxab-evaluator`) and stores its credentials in AWS Secrets Manager.
+The CDK stack creates a read-only IAM user (`oda-evaluator`) and stores its credentials in AWS Secrets Manager.
 
 ## Retrieve Credentials
 
 ```bash
 aws secretsmanager get-secret-value \
-  --secret-id maxab-evaluator-credentials \
+  --secret-id oda-evaluator-credentials \
   --query SecretString \
   --output text | jq .
 ```
@@ -27,7 +27,7 @@ Output:
    - **Access Key ID**: from above
    - **Secret Access Key**: from above
    - **Default Region**: `us-east-1`
-   - **Title**: `MaxAB Case Study — Evaluator (Read-Only)`
+   - **Title**: `ODA — Evaluator (Read-Only)`
 3. Share → **Anyone with the link** (expiry: 7 days)
 4. Paste the 1Password share URL into your submission email / Notion doc
 
@@ -45,12 +45,12 @@ Output:
 ```bash
 # Delete the access key
 aws iam delete-access-key \
-  --user-name maxab-evaluator \
+  --user-name oda-evaluator \
   --access-key-id <access_key_id>
 
 # Delete the secret
 aws secretsmanager delete-secret \
-  --secret-id maxab-evaluator-credentials \
+  --secret-id oda-evaluator-credentials \
   --recovery-window-in-days 7
 
 # Or destroy the full stack (removes user + secret + tables + Lambdas)

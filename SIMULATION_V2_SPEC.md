@@ -1,4 +1,4 @@
-# Spec: MaxAB Simulation Data — Generation Run v2
+# Spec: ODA Simulation Data — Generation Run v2
 
 **Source of truth for findings:** `DATA_VALIDATION_NOTES.md` (independent profiling of the v1 dataset — 952K orders / 4.2M lines / 6,824 customers, Jul 2022–Jun 2024, rated **6.5/10** for realism)
 **This document turns that audit's §7 fix list into a scoped, phased build plan for the next generation run.**

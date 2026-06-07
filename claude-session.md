@@ -34,7 +34,7 @@ Claude explored the repo, read the simulation engine and data sampler code, pars
 - Inspected `orders.parquet`, `customers.parquet`, `rfm_scores.parquet` schemas to wire the seed correctly
 - Discovered orders have payload as JSON-string — seed script parses it for `fraud_score` fallback
 - Discovered segment values are `regular/premium/low_volume` → mapped to `standard/premium/at-risk` for Lambda scoring
-- All 5 files created: `infra/maxab_stack.py`, `infra/app.py`, `lambdas/decision/handler.py`, `lambdas/action/handler.py`, `scripts/seed.py`
+- All 5 files created: `infra/oda_stack.py`, `infra/app.py`, `lambdas/decision/handler.py`, `lambdas/action/handler.py`, `scripts/seed.py`
 
 **Key diff:** See commit `[TBD after cdk deploy]`
 
@@ -52,7 +52,7 @@ Claude explored the repo, read the simulation engine and data sampler code, pars
 1. `bisect_on_error` → correct param is `bisect_batch_on_error`
 2. `log_retention` → deprecated, replaced with explicit `aws_logs.LogGroup` construct + `log_group=` param
 
-**Key diff:** Two param renames + log group refactor in `maxab_stack.py`. Zero logic changes.
+**Key diff:** Two param renames + log group refactor in `oda_stack.py`. Zero logic changes.
 
 ---
 
@@ -61,14 +61,14 @@ Claude explored the repo, read the simulation engine and data sampler code, pars
 **Prompt:** "cd infra && cdk bootstrap && cdk deploy"
 
 **What happened:** Bootstrap created CDKToolkit stack (S3 staging bucket, ECR repo, IAM roles). Deploy created 18 resources in 67 seconds:
-- `maxab-orders` (DynamoDB + Streams)
-- `maxab-action-log` (DynamoDB)
-- `maxab-decision` Lambda + ESM (INSERT filter)
-- `maxab-action` Lambda + ESM (MODIFY filter)
+- `oda-orders` (DynamoDB + Streams)
+- `oda-action-log` (DynamoDB)
+- `oda-decision` Lambda + ESM (INSERT filter)
+- `oda-action` Lambda + ESM (MODIFY filter)
 - IAM evaluator user + Secrets Manager secret
 - CloudWatch dashboard + X-Ray tracing
 
-**Stack ARN:** `arn:aws:cloudformation:us-east-1:563611194201:stack/MaxabStack/b313e170-62a0-11f1-9bf4-12c49ee85b0d`
+**Stack ARN:** `arn:aws:cloudformation:us-east-1:563611194201:stack/OdaStack/b313e170-62a0-11f1-9bf4-12c49ee85b0d`
 
 ---
 

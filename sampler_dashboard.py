@@ -1,5 +1,5 @@
 """
-MaxAB Data Sampler Dashboard
+ODA Data Sampler Dashboard
 Run: streamlit run sampler_dashboard.py
 """
 import pathlib
@@ -20,12 +20,12 @@ def _t(name: str, **kwargs) -> dict:
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="MaxAB Data Sampler",
+    page_title="ODA Data Sampler",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("MaxAB Data Sampler")
+st.title("ODA Data Sampler")
 st.caption("Configure sampling from the simulation engine, run, and inspect business metrics per sample.")
 
 # ── Sidebar: Config panel ─────────────────────────────────────────────────────

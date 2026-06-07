@@ -1,5 +1,5 @@
 """
-Action Lambda — triggered by DynamoDB Streams MODIFY events on maxab-orders
+Action Lambda — triggered by DynamoDB Streams MODIFY events on oda-orders
 where 'decision' attribute EXISTS and 'post_decision_action' does NOT exist.
 
 This guard (enforced by Streams FilterCriteria in CDK) prevents infinite loops:
