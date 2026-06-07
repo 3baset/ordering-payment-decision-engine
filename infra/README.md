@@ -44,7 +44,7 @@ An AWS-native, event-driven order decisioning system. Built end-to-end with Clau
 
 **Why this design:**
 - **DynamoDB** for storage: native Streams → Lambda (zero polling), Free Tier covers 100k records, no servers.
-- **Same stream, two event sources**: FilterCriteria at source means zero extra services (no EventBridge, no SNS). The `attribute_not_exists(post_decision_action)` guard prevents the Action Lambda from re-triggering on its own MODIFY writes.
+- **Same stream, two event sources**: FilterCriteria at source means zero extra services (no EventBridge, no SNS). The Action Lambda ESM filters on `eventName=MODIFY`; loop prevention is code-level (`ConditionExpression="attribute_not_exists(post_decision_action)"` on UpdateItem). Filtering on DynamoDB NewImage attribute existence (`{exists:true}`) in Lambda ESM silently drops all records — a live-deploy finding documented in `claude-session.md`.
 - **Denormalised seed records**: customer segment, payment method, and RFM scores are embedded in each order so the Decision Lambda scores without additional lookups (no cold join latency).
 
 ---

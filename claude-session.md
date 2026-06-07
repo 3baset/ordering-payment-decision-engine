@@ -86,16 +86,16 @@ The Action Lambda's filter combined `{"exists": true}` (on `decision`) and `{"ex
 - `if order.get("post_decision_action"): skipped += 1; continue`
 - `ConditionExpression="attribute_not_exists(post_decision_action)"` on the UpdateItem
 
-After filter simplification, full chain confirmed:
+**What happened (Discovery #3 — `exists:true` alone also doesn't work):**
+After removing `not_exists`, the Action Lambda ESM filter was `eventName=MODIFY + decision:{exists:true}`. This continued to show `No records processed`. Testing confirmed that any `exists` predicate at the DynamoDB NewImage attribute level in Lambda ESM filters is silently dropped by AWS. The final working filter is `eventName=MODIFY` only; idempotency is fully enforced in code.
+
+**Final chain confirmed with auto-trigger (no direct invoke):**
 
 ```
-ORD-SMOKE-001  premium   →  AUTO_APPROVE   (0.9637)  →  FULFILLED   ✓
-ORD-SMOKE-002  at-risk   →  DECLINE        (0.2412)  →  REJECTED    ✓
-ORD-SMOKE-003  standard  →  MANUAL_REVIEW  (0.6040)  →  ESCALATED   ✓  (priority=medium)
-ORD-SMOKE-004  premium   →  AUTO_APPROVE   (0.9575)  →  FULFILLED   ✓
+ORD-SMOKE-ESM-002  standard  →  MANUAL_REVIEW  (0.667)  →  ESCALATED   ✓
 ```
 
-Decision Lambda: ~150ms avg duration | Action Lambda: ~134–168ms (first invoke), ~2ms (idempotent skips)
+Decision Lambda: ~150ms avg duration | Action Lambda: ~132ms first invoke, ~2ms idempotent skips
 
 ---
 
@@ -113,7 +113,7 @@ Decision Lambda: ~150ms avg duration | Action Lambda: ~134–168ms (first invoke
 - **Seed payment method field** — Initial seed used `orders.payment_method` (doesn't exist in this dataset) — corrected to join from `customers.parquet`.
 - **`bisect_on_error` → `bisect_batch_on_error`** — CDK param name was wrong; caught at synth time.
 - **`log_retention` → explicit `LogGroup`** — Deprecated CDK API; replaced with explicit log group construct.
-- **`not_exists` filter removed** — Combined `exists: true` + `exists: false` in DynamoDB Streams FilterCriteria silently drops all records. Removed and relied on code-level idempotency instead.
+- **ESM filter stripped to `eventName=MODIFY` only** — Both `exists:false` (combined with `exists:true`) and `exists:true` alone on DynamoDB NewImage attributes silently drop all records in Lambda ESM. The only reliable filter is on top-level event metadata (`eventName`). All attribute-level checks moved to code.
 
 ## What I'd Do Differently
 

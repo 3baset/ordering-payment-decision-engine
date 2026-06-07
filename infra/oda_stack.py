@@ -112,12 +112,11 @@ class OdaStack(Stack):
         orders_table.grant_read_write_data(action_fn)
         action_log_table.grant_write_data(action_fn)
 
-        # Trigger: MODIFY events where decision EXISTS
-        # Note: AWS DynamoDB Streams FilterCriteria has a known quirk where combining
-        # {exists:true} and {exists:false} on sibling keys in NewImage silently drops
-        # all records. Idempotency is handled in handler code instead:
-        #   - Lambda checks order.get("post_decision_action") and skips if already set
-        #   - UpdateItem uses ConditionExpression="attribute_not_exists(post_decision_action)"
+        # Trigger: MODIFY events on orders table → Action Lambda
+        # Filter: eventName=MODIFY only. Filtering on NewImage attribute existence
+        # (e.g. decision exists) silently drops all records in Lambda ESM for DynamoDB
+        # streams. Loop prevention is code-level: ConditionExpression on UpdateItem
+        # ensures action is only written once per order.
         action_fn.add_event_source(
             event_sources.DynamoEventSource(
                 orders_table,
@@ -128,11 +127,6 @@ class OdaStack(Stack):
                 filters=[
                     lambda_.FilterCriteria.filter({
                         "eventName": lambda_.FilterRule.is_equal("MODIFY"),
-                        "dynamodb": {
-                            "NewImage": {
-                                "decision": lambda_.FilterRule.exists(),
-                            }
-                        },
                     })
                 ],
             )
