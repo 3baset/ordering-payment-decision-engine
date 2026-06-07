@@ -1,0 +1,176 @@
+simulation:
+  seed: 42
+  start_date: "2023-01-01"
+  end_date:   "2024-06-30"
+  days:       547
+  currency:   "EGP"
+
+scale:
+  initial_customers: 2000
+  sku_count:         500
+  initial_suppliers: 50
+  reps_per_area:     "3-7"
+
+event_store:
+  path: "output/event_store.duckdb"
+  batch_size: 10000
+
+output:
+  parquet_dir: "output/tables"
+
+macro:
+  daily_inflation: 0.000724
+  egp_usd_rate: 30.6
+  ramadan_start: "2023-03-22"
+  ramadan_end:   "2023-04-21"
+  seasonality:
+    1: 0.85
+    2: 0.90
+    3: 1.20
+    4: 1.30
+    5: 1.00
+    6: 1.20
+    7: 1.40
+    8: 1.45
+    9: 1.30
+    10: 1.05
+    11: 0.95
+    12: 1.00
+
+customers:
+  segment_weights:
+    premium:    0.20
+    regular:    0.50
+    low_volume: 0.30
+  acquisition_channel_weights:
+    rep_referral: 0.60
+    digital:      0.40
+  digital_active_probability: 0.40
+  credit_limits_egp:
+    premium:    {base: 1500000, variability: 0.20}
+    regular:    {base: 500000,  variability: 0.30}
+    low_volume: {base: 120000,  variability: 0.50}
+
+orders:
+  base_rates:
+    premium:    0.12
+    regular:    0.07
+    low_volume: 0.02
+    new_30d:    0.15
+  basket_lognormal:
+    premium:    {mean_log: 10.92, sigma: 1.0}
+    regular:    {mean_log:  9.92, sigma: 1.2}
+    low_volume: {mean_log:  8.42, sigma: 1.5}
+  recency_boosts:
+    over_30d:  0.5
+    over_60d:  0.1
+    under_7d:  1.2
+  min_lines: 1
+  max_lines: 8
+
+payments:
+  terms_days: 30
+  delay_gamma_scale: 5.0
+  success_probability:
+    low_risk:    {threshold: 0.3, prob: 0.95}
+    medium_risk: {threshold: 0.7, prob: 0.70}
+    high_risk:   {threshold: 1.0, prob: 0.40}
+  collection_trigger_days: 30
+  writeoff_days: 180
+  max_payment_attempts: 3
+  retry_days: 7
+
+inventory:
+  stockout_resolution:
+    substitute: 0.30
+    backorder:  0.20
+    cancel_line: 0.50
+  supplier_delay_probability: 0.05
+  supplier_delay_days_min: 1
+  supplier_delay_days_max: 15
+  lead_time_days:
+    - {days: 3,  prob: 0.20}
+    - {days: 5,  prob: 0.30}
+    - {days: 7,  prob: 0.25}
+    - {days: 10, prob: 0.15}
+    - {days: 14, prob: 0.10}
+  eoq_order_cost: 200
+  eoq_holding_cost: 10
+  service_level_z: 1.645
+
+customer_arrival:
+  lambda_base: 5.0
+  growth_rate: 0.002
+  acquisition_seasonality:
+    1: 1.00
+    2: 1.10
+    3: 2.00   # Ramadan spike — highest new-account onboarding
+    4: 1.80   # Eid tail
+    5: 1.00
+    6: 0.80
+    7: 0.60   # Summer slowdown (demand up, acquisition down)
+    8: 0.60
+    9: 0.90
+    10: 1.10
+    11: 1.00
+    12: 1.20  # Year-end stock-up
+
+lifecycle:
+  inactive_threshold_days:  60
+  dormant_threshold_days:   150
+  churned_threshold_days:   330
+  reactivation_boost_days:  30
+  reactivation_boost_factor: 1.5
+
+rep_visits:
+  base_rates:
+    premium:    0.03
+    regular:    0.01
+    low_volume: 0.005
+  overdue_visit_factor: 2.0
+  overdue_visit_days: 30
+  outcomes:
+    no_order:     0.50
+    small_order:  0.30
+    large_order:  0.15
+    reactivation: 0.05
+  outcomes_inactive:           # outcome weights for inactive/dormant customers
+    no_order:     0.40
+    small_order:  0.10
+    large_order:  0.00
+    reactivation: 0.50
+  churned_visit_prob: 0.10     # probability of attempting a visit to a churned customer
+  tier_outcomes:               # active-customer outcome weights by rep tier (A=best)
+    A: {no_order: 0.25, small_order: 0.30, large_order: 0.30, reactivation: 0.15}
+    B: {no_order: 0.40, small_order: 0.35, large_order: 0.20, reactivation: 0.05}
+    C: {no_order: 0.55, small_order: 0.30, large_order: 0.10, reactivation: 0.05}
+    D: {no_order: 0.70, small_order: 0.25, large_order: 0.05, reactivation: 0.00}
+  max_visits_per_day_min: 3
+  max_visits_per_day_max: 5
+
+fraud:
+  velocity_threshold: 3
+  amount_multiplier_threshold: 5
+  high_risk_score_threshold: 0.8
+  reject_score_threshold: 0.9
+  cancellation_probability: 0.005
+  return_probability: 0.05
+  return_days_min: 3
+  return_days_max: 14
+
+app_sessions:
+  base_digital_rate: 0.15
+  order_conversion_min: 0.15
+  order_conversion_max: 0.80
+
+bootstrap:
+  lookback_days: 180
+  min_orders: 3
+  max_orders: 12
+
+noise:
+  out_of_order_rate:      0.001
+  data_corruption_rate:   0.0001
+  late_arrival_rate:      0.020
+  late_arrival_days: 2
+  out_of_order_hours: 1

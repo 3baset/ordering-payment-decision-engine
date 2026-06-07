@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MaxAB — Financial Health, Fulfilment &amp; Assortment</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<style>
+:root {
+  --bg:#f0f2f5; --card:#ffffff; --header:#0f172a; --accent:#3b82f6; --text:#1e293b; --muted:#64748b; --border:#e2e8f0;
+  --positive:#10b981; --negative:#ef4444; --warning:#f59e0b; --gap:16px; --r:10px;
+  --c1:#3b82f6; --c2:#10b981; --c3:#f59e0b; --c4:#ef4444; --c5:#8b5cf6; --c6:#06b6d4; --c7:#f97316; --c8:#84cc16;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); }
+.wrap { max-width:1440px; margin:0 auto; padding:var(--gap); }
+header { background:var(--header); border-radius:var(--r); padding:20px 24px; margin-bottom:var(--gap); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-mark { width:36px; height:36px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; font-size:16px; }
+header h1 { font-size:18px; font-weight:600; color:#fff; }
+header p { font-size:12px; color:rgba(255,255,255,0.5); margin-top:2px; }
+
+.tabs { display:flex; gap:6px; background:var(--card); border-radius:var(--r); padding:6px; margin-bottom:var(--gap); box-shadow:0 1px 4px rgba(0,0,0,0.06); flex-wrap:wrap; }
+.tab-btn { flex:1; min-width:160px; padding:10px 16px; border:none; border-radius:8px; background:transparent; color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; transition:.15s; text-align:center; }
+.tab-btn:hover { background:#f1f5f9; color:var(--text); }
+.tab-btn.active { background:var(--header); color:#fff; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; animation:fade .2s ease; }
+@keyframes fade { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+.note-banner { background:#fffbeb; border:1px solid #fde68a; border-left:4px solid var(--c3); border-radius:8px; padding:12px 16px; margin-bottom:var(--gap); font-size:12.5px; color:#78350f; line-height:1.5; }
+.note-banner b { color:#92400e; }
+.note-banner.blue { background:#eff6ff; border-color:#bfdbfe; border-left-color:var(--c1); color:#1e3a8a; }
+.note-banner.blue b { color:#1e40af; }
+
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+.kpi { background:var(--card); border-radius:var(--r); padding:18px 20px; box-shadow:0 1px 4px rgba(0,0,0,0.06); border-top:3px solid transparent; }
+.kpi.blue{border-color:var(--c1)} .kpi.green{border-color:var(--c2)} .kpi.amber{border-color:var(--c3)} .kpi.purple{border-color:var(--c5)} .kpi.red{border-color:var(--c4)} .kpi.cyan{border-color:var(--c6)}
+.kpi-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin-bottom:6px; }
+.kpi-value { font-size:24px; font-weight:700; color:var(--text); line-height:1; margin-bottom:6px; }
+.kpi-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+.kpi-badge { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
+.kpi-badge.up{background:#d1fae5;color:#065f46} .kpi-badge.down{background:#fee2e2;color:#991b1b} .kpi-badge.warn{background:#fef3c7;color:#92400e} .kpi-badge.info{background:#dbeafe;color:#1e40af}
+
+.chart-row { display:grid; gap:var(--gap); margin-bottom:var(--gap); }
+.chart-row.two { grid-template-columns:2fr 1fr; }
+.chart-row.three { grid-template-columns:1fr 1fr 1fr; }
+.chart-row.equal { grid-template-columns:1fr 1fr; }
+.chart-card { background:var(--card); border-radius:var(--r); padding:20px 22px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.chart-title { font-size:14px; font-weight:600; color:var(--text); margin-bottom:4px; }
+.chart-sub { font-size:12px; color:var(--muted); margin-bottom:14px; }
+.chart-card canvas { max-height:260px; }
+.chart-card.tall canvas { max-height:320px; }
+
+.table-card { background:var(--card); border-radius:var(--r); padding:20px 22px; box-shadow:0 1px 4px rgba(0,0,0,0.06); margin-bottom:var(--gap); overflow-x:auto; }
+.table-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+thead th { padding:9px 12px; text-align:left; border-bottom:2px solid var(--border); color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; white-space:nowrap; }
+tbody td { padding:9px 12px; border-bottom:1px solid var(--border); }
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover { background:#f8fafc; }
+.badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+.badge.a{background:#d1fae5;color:#065f46} .badge.b{background:#dbeafe;color:#1e40af} .badge.c{background:#fef3c7;color:#92400e}
+.mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:var(--muted); }
+.bar-meter { height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden; margin-top:4px; }
+.bar-meter-fill { height:100%; border-radius:3px; }
+footer { text-align:center; font-size:11px; color:var(--muted); padding:12px; }
+
+@media (max-width:900px) {
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .chart-row.two,.chart-row.three,.chart-row.equal{grid-template-columns:1fr}
+}
+@media (max-width:520px){ .kpi-row{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <div class="logo-mark">M</div>
+      <div>
+        <h1>MaxAB — Financial Health · Fulfilment · Assortment</h1>
+        <p>Synthetic wholesale simulation · Jul 2022 – Jun 2024 (726 days, incl. 6-mo bootstrap) · Companion to Wholesale Business Performance dashboard</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="fin">💰 Financial Health</button>
+    <button class="tab-btn" data-tab="ful">📦 Fulfilment &amp; Operations</button>
+    <button class="tab-btn" data-tab="ast">🧺 Assortment &amp; Category</button>
+  </div>
+
+  <!-- ============ FINANCIAL HEALTH ============ -->
+  <div class="tab-panel active" id="tab-fin">
+
+    <div class="kpi-row">
+      <div class="kpi blue">
+        <div class="kpi-label">Outstanding Receivables (AR)</div>
+        <div class="kpi-value">EGP 16.55B</div>
+        <div class="kpi-sub">Across 5,738 customer ledgers · 33 accounts net-negative</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label">Days Sales Outstanding</div>
+        <div class="kpi-value">38.7 days</div>
+        <span class="kpi-badge up">Within 25–45d benchmark</span>
+      </div>
+      <div class="kpi amber">
+        <div class="kpi-label">Payment Capture Rate</div>
+        <div class="kpi-value">82.1%</div>
+        <div class="kpi-sub">818,688 paid / 178,296 failed (100% "insufficient funds")</div>
+      </div>
+      <div class="kpi red">
+        <div class="kpi-label">Severely Overdue (90+ days)</div>
+        <div class="kpi-value">EGP 1.09B</div>
+        <div class="kpi-sub">16,264 invoices · 13.3% of all invoices are overdue</div>
+      </div>
+    </div>
+
+    <div class="note-banner"><b>Reading note:</b> the spike from ~EGP 80M to 1.3B+ invoiced/month at the Jan-2023 boundary below is <b>not organic growth</b> — it's the seam between the engine's 6-month "bootstrap" history generator and the live simulation, which run on different volume rules. See <span class="mono">DATA_VALIDATION_NOTES.md §1.1</span> for detail. Treat 2022 H2 as a separate regime when reading any trend on this page.</div>
+
+    <div class="chart-row two">
+      <div class="chart-card tall">
+        <div class="chart-title">Monthly Invoiced vs. Collected</div>
+        <div class="chart-sub">EGP, with payment capture rate (%) overlay — note the bootstrap→live step change at Jan-2023</div>
+        <canvas id="finMonthly"></canvas>
+      </div>
+      <div class="chart-card tall">
+        <div class="chart-title">Invoice Aging</div>
+        <div class="chart-sub">937K invoices by collection status (EGP M)</div>
+        <canvas id="aging"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-row three">
+      <div class="chart-card">
+        <div class="chart-title">Days Sales Outstanding Trend</div>
+        <div class="chart-sub">Avg days invoice→payment (live months only; last month censored &amp; excluded)</div>
+        <canvas id="dsoTrend"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Collected Revenue by Payment Method</div>
+        <div class="chart-sub">EGP Billions, paid transactions only</div>
+        <canvas id="paymentMix"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Monthly Bad-Debt Write-offs</div>
+        <div class="chart-sub">EGP Millions written off to credit ledger</div>
+        <canvas id="writeoffs"></canvas>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header"><div class="chart-title" style="margin-bottom:0">Highest-Risk Accounts (Overdue Balance)</div><span class="chart-sub" style="margin-bottom:0">Top 8 customers by total overdue invoice value — candidates for collections / credit-limit review</span></div>
+      <table>
+        <thead><tr><th>Customer ID</th><th>Overdue Invoices</th><th>Overdue Amount (EGP)</th><th>Risk</th></tr></thead>
+        <tbody id="overdueBody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ============ FULFILMENT ============ -->
+  <div class="tab-panel" id="tab-ful">
+
+    <div class="kpi-row">
+      <div class="kpi blue">
+        <div class="kpi-label">Order Fulfilment Rate</div>
+        <div class="kpi-value">91.9%</div>
+        <span class="kpi-badge up">Within 85–95% benchmark</span>
+      </div>
+      <div class="kpi amber">
+        <div class="kpi-label">Return Rate</div>
+        <div class="kpi-value">4.7%</div>
+        <div class="kpi-sub">Near-identical 4.6–4.8% across all 7 categories</div>
+      </div>
+      <div class="kpi red">
+        <div class="kpi-label">SKU Stockout Rate</div>
+        <div class="kpi-value">9.2%</div>
+        <div class="kpi-sub">46 of 500 SKUs at zero/negative on-hand</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label">Rep Visit→Order Conversion</div>
+        <div class="kpi-value">~46%</div>
+        <div class="kpi-sub">45 reps · ~38 visits/month each</div>
+      </div>
+    </div>
+
+    <div class="note-banner"><b>Reading note:</b> the fulfilment-rate trend below shows a flat <b>100.0%</b> for all of H2-2022 (every bootstrap order is born "Delivered" — zero returns, zero cancellations), then an overnight drop to ~92% on Jan-2023. No real operation is perfect for 6 months and then suddenly isn't — this is the bootstrap/live seam again (<span class="mono">DATA_VALIDATION_NOTES.md §1.1</span>).</div>
+
+    <div class="chart-row two">
+      <div class="chart-card tall">
+        <div class="chart-title">Order Status Funnel (full simulation)</div>
+        <div class="chart-sub">952,674 orders across all 726 days — terminal status distribution</div>
+        <canvas id="funnel"></canvas>
+      </div>
+      <div class="chart-card tall">
+        <div class="chart-title">Stockout Resolution Mix</div>
+        <div class="chart-sub">3.58M partial-fill events — resolutions land on suspiciously exact 50/30/20 split</div>
+        <canvas id="stockoutMix"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-row two">
+      <div class="chart-card tall">
+        <div class="chart-title">Monthly Fulfilment Rate</div>
+        <div class="chart-sub">% of orders reaching "Delivered" — watch the Jan-2023 cliff from 100% → ~92%</div>
+        <canvas id="fulfilTrend"></canvas>
+      </div>
+      <div class="chart-card tall">
+        <div class="chart-title">Channel Performance</div>
+        <div class="chart-sub">Delivered / Returned / Cancelled rate by ordering channel, with AOV</div>
+        <canvas id="channelPerf"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-row three">
+      <div class="chart-card">
+        <div class="chart-title">Stockout Volume Trend</div>
+        <div class="chart-sub">Monthly partial-fill events by resolution type</div>
+        <canvas id="stockoutTrend"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Return Rate by Category</div>
+        <div class="chart-sub">4.62–4.75% band — unrealistically uniform for perishable vs. durable goods</div>
+        <canvas id="returnsByCategory"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Stockouts by Category</div>
+        <div class="chart-sub">SKUs at zero/negative on-hand, end of simulation</div>
+        <canvas id="oosByCategory"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ASSORTMENT ============ -->
+  <div class="tab-panel" id="tab-ast">
+
+    <div class="kpi-row">
+      <div class="kpi blue">
+        <div class="kpi-label">Active SKUs</div>
+        <div class="kpi-value">500</div>
+        <div class="kpi-sub">Across 7 categories · 46 currently stocked out</div>
+      </div>
+      <div class="kpi green">
+        <div class="kpi-label">Top Category (Food)</div>
+        <div class="kpi-value">25.9%</div>
+        <div class="kpi-sub">of total assortment revenue (EGP 20.9B)</div>
+      </div>
+      <div class="kpi amber">
+        <div class="kpi-label">Top-10% SKU Revenue Share</div>
+        <div class="kpi-value">12.6%</div>
+        <span class="kpi-badge warn">Flat vs. typical 50–80% Pareto</span>
+      </div>
+      <div class="kpi purple">
+        <div class="kpi-label">Best : Worst SKU Ratio</div>
+        <div class="kpi-value">~4.1×</div>
+        <div class="kpi-sub">EGP 209M vs. 51M revenue — narrow spread</div>
+      </div>
+    </div>
+
+    <div class="note-banner"><b>Reading note:</b> the concentration curve below is close to a straight diagonal — the top 10% of SKUs generate only ~13% of revenue and the top half generates ~59%. Real assortments almost always show an 80/20-style curve with clear hero SKUs and long-tail laggards; this assortment behaves as if every SKU sells in roughly the same order of magnitude (<span class="mono">DATA_VALIDATION_NOTES.md §3</span>).</div>
+
+    <div class="chart-row two">
+      <div class="chart-card tall">
+        <div class="chart-title">Revenue by Category</div>
+        <div class="chart-sub">EGP Billions — realized mix tracks the configured category weights closely</div>
+        <canvas id="catRevenue"></canvas>
+      </div>
+      <div class="chart-card tall">
+        <div class="chart-title">SKU Revenue Concentration (Pareto)</div>
+        <div class="chart-sub">Cumulative revenue % vs. cumulative SKU % — dashed line = perfectly even distribution</div>
+        <canvas id="pareto"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-row three">
+      <div class="chart-card">
+        <div class="chart-title">Revenue by Demand Class</div>
+        <div class="chart-sub">A / B / C tiers — note 313 of 500 SKUs carry more than one class over time</div>
+        <canvas id="demandClass"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Avg Unit Price by Category</div>
+        <div class="chart-sub">EGP per unit — HORECA supplies command the highest unit economics</div>
+        <canvas id="avgPriceByCat"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">SKU Count by Category</div>
+        <div class="chart-sub">Assortment breadth — 500 SKUs total</div>
+        <canvas id="skuCountByCat"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-row two">
+      <div class="table-card" style="margin-bottom:0">
+        <div class="table-header"><div class="chart-title" style="margin-bottom:0">Top 10 SKUs by Revenue</div></div>
+        <table>
+          <thead><tr><th>SKU</th><th>Category</th><th>Revenue (EGP)</th><th>Units Sold</th></tr></thead>
+          <tbody id="topSkuBody"></tbody>
+        </table>
+      </div>
+      <div class="table-card" style="margin-bottom:0">
+        <div class="table-header"><div class="chart-title" style="margin-bottom:0">Bottom 10 SKUs by Revenue</div></div>
+        <table>
+          <thead><tr><th>SKU</th><th>Category</th><th>Revenue (EGP)</th><th>Units Sold</th></tr></thead>
+          <tbody id="bottomSkuBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="chart-row" style="grid-template-columns:1fr">
+      <div class="chart-card tall">
+        <div class="chart-title">Category Revenue Trend</div>
+        <div class="chart-sub">Monthly revenue by category (EGP Millions) — bootstrap→live seam visible at Jan-2023</div>
+        <canvas id="catTrend"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>MaxAB Synthetic Wholesale Simulation — Financial Health / Fulfilment / Assortment Analysis · Built from <span class="mono">output/tables/*.parquet</span> via DuckDB · See <span class="mono">DATA_VALIDATION_NOTES.md</span> for full methodology &amp; data-quality findings · Realism rating: 6.5 / 10</footer>
+</div>
+
+<script>
+const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16'];
+Chart.defaults.font.family = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#64748b';
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+Chart.defaults.plugins.legend.labels.padding = 12;
+
+function fmtEGP(v){ return 'EGP ' + Number(v).toLocaleString(undefined,{maximumFractionDigits:0}); }
+function fmtCompact(v){ return Number(v).toLocaleString(undefined,{maximumFractionDigits:1}); }
+
+// ---------------- TAB SWITCHING ----------------
+const tabBtns = document.querySelectorAll('.tab-btn');
+const panels = { fin: document.getElementById('tab-fin'), ful: document.getElementById('tab-ful'), ast: document.getElementById('tab-ast') };
+let rendered = { fin:false, ful:false, ast:false };
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    Object.values(panels).forEach(p=>p.classList.remove('active'));
+    const key = btn.dataset.tab;
+    panels[key].classList.add('active');
+    if (!rendered[key]) { renderTab[key](); rendered[key] = true; }
+  });
+});
+
+// ============================================================
+// FINANCIAL HEALTH DATA
+// ============================================================
+const FIN_MONTHS = ["2022-07", "2022-08", "2022-09", "2022-10", "2022-11", "2022-12", "2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06"];
+const INVOICED = [67554457.0, 99074190.0, 96880535.0, 99533562.0, 99450322.0, 97457403.0, 1153919618.0, 1477795017.0, 1926659341.0, 2138697128.0, 2459636874.0, 2613207805.0, 2750437242.0, 2879428863.0, 2576235574.0, 3186252358.0, 4374461823.0, 5401417556.0, 5760839417.0, 5864631680.0, 6614412312.0, 7229288952.0, 8243710677.0, 8491174169.0];
+const COLLECTED = [14058366.0, 66023861.0, 77675467.0, 83106168.0, 79686809.0, 78940208.0, 54487708.0, 648349994.0, 1509543400.0, 1744177423.0, 2106178675.0, 2280081598.0, 2604812083.0, 2711030759.0, 2683547812.0, 2773342094.0, 2804914843.0, 4154268804.0, 5094168878.0, 5152308066.0, 6055129166.0, 6256321097.0, 7132073754.0, 7665973700.0];
+const CAPTURE_RATE = [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 83.5, 82.1, 82.1, 81.8, 81.8, 82.1, 81.8, 81.7, 82.0, 81.7, 81.8, 82.0, 81.7, 81.8, 81.7, 81.9, 82.0];
+const DSO_MONTHS = ["2022-07", "2022-08", "2022-09", "2022-10", "2022-11", "2022-12", "2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05"];
+const DSO_VALS = [19.9, 20.1, 20.2, 20.0, 20.1, 20.2, 39.0, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.2, 39.1, 39.0, 36.8];
+const AGING_LABELS = ["current", "1-30 overdue", "31-60 overdue", "61-90 overdue", "90+ overdue"];
+const AGING_N = [84460, 22556, 1971, 1441, 16264];
+const AGING_AMT = [8768.4, 2316.2, 189.9, 123.1, 1085.3];
+const PM_LABELS = ["cash", "bank_transfer", "cheque"];
+const PM_AMOUNTS = [12.61, 31.35, 19.88];
+const WO_MONTHS = ["2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06"];
+const WO_AMT = [12.2, 16.4, 20.5, 23.3, 23.4, 33.4, 30.3, 28.4, 32.5, 37.4, 49.7, 66.4];
+const TOP_OVERDUE = [["43ba119e-3f8b-469e-8f84-ca2d28e16873", 65, 10920863.0], ["a0b83a17-c92e-4477-a08a-b5728b442fe9", 49, 10848377.0], ["bd4b0109-03c0-4d18-9507-d0ba13857c99", 72, 10527591.0], ["1904f014-092a-4fdb-b995-e41d2a84b98f", 54, 8412778.0], ["3561a417-9b24-46ea-975c-a899c7c8f474", 42, 8231765.0], ["cb8b1e1f-8841-46c6-982a-a1ade7bf6f35", 20, 8044389.0], ["237d659b-a0dd-40e1-bec0-c824b1e00f9d", 22, 7999460.0], ["e3d73d2b-b19d-4e17-9d70-e853e51445b5", 15, 7860451.0]];
+
+function renderFin(){
+  new Chart(document.getElementById('finMonthly'), {
+    type:'bar',
+    data:{ labels: FIN_MONTHS, datasets:[
+      {type:'bar', label:'Invoiced (EGP)', data: INVOICED, backgroundColor:'#3b82f6', borderRadius:3, yAxisID:'y'},
+      {type:'bar', label:'Collected (EGP)', data: COLLECTED, backgroundColor:'#10b981', borderRadius:3, yAxisID:'y'},
+      {type:'line', label:'Capture rate (%)', data: CAPTURE_RATE, borderColor:'#f59e0b', backgroundColor:'#f59e0b', yAxisID:'y1', tension:.25, pointRadius:2}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      scales:{ y:{ title:{display:true,text:'EGP'}, ticks:{ callback:v=>(v/1e9).toFixed(1)+'B' } },
+               y1:{ position:'right', min:0, max:100, grid:{drawOnChartArea:false}, title:{display:true,text:'Capture %'} } } }
+  });
+  new Chart(document.getElementById('aging'), {
+    type:'bar',
+    data:{ labels: AGING_LABELS, datasets:[
+      {label:'# Invoices', data: AGING_N, backgroundColor:'#3b82f6', borderRadius:4, yAxisID:'y'},
+      {label:'Value (EGP M)', data: AGING_AMT, backgroundColor:'#ef4444', borderRadius:4, yAxisID:'y1'}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      scales:{ y:{ stacked:false }, x:{ title:{display:true,text:'# invoices'} },
+               y1:{ display:false }, x1:{display:false} } }
+  });
+  new Chart(document.getElementById('dsoTrend'), {
+    type:'line',
+    data:{ labels: DSO_MONTHS, datasets:[{ label:'Avg days to pay', data: DSO_VALS, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.15)', fill:true, tension:.3, pointRadius:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ suggestedMin:0, suggestedMax:50, title:{display:true,text:'Days'} } } }
+  });
+  new Chart(document.getElementById('paymentMix'), {
+    type:'doughnut',
+    data:{ labels: PM_LABELS, datasets:[{ data: PM_AMOUNTS, backgroundColor:[COLORS[0],COLORS[1],COLORS[2]], borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ tooltip:{ callbacks:{ label:(ctx)=> ctx.label+': EGP '+ctx.parsed+'B' } } } }
+  });
+  new Chart(document.getElementById('writeoffs'), {
+    type:'bar',
+    data:{ labels: WO_MONTHS, datasets:[{ label:'Write-offs (EGP M)', data: WO_AMT, backgroundColor:'#ef4444', borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ title:{display:true,text:'EGP Millions'} } } }
+  });
+  const tbody = document.getElementById('overdueBody');
+  const maxAmt = Math.max(...TOP_OVERDUE.map(r=>r[2]));
+  tbody.innerHTML = TOP_OVERDUE.map(r => `<tr>
+      <td class="mono">${r[0].slice(0,8)}…</td>
+      <td>${r[1]}</td>
+      <td>${fmtEGP(r[2])}</td>
+      <td><div class="bar-meter" style="width:120px"><div class="bar-meter-fill" style="width:${(r[2]/maxAmt*100).toFixed(0)}%; background:${r[2]>9000000?'#ef4444':'#f59e0b'}"></div></div></td>
+    </tr>`).join('');
+}
+
+// ============================================================
+// FULFILMENT DATA
+// ============================================================
+const FUNNEL_LABELS = ["OrderCreated", "OrderShipped", "OrderDelivered", "OrderReturned", "OrderCancelled"];
+const FUNNEL_VALS = [5115, 22928, 875600, 44349, 4682];
+const MF_MONTHS = ["2022-07", "2022-08", "2022-09", "2022-10", "2022-11", "2022-12", "2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06"];
+const MF_RATE = [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 92.5, 92.9, 92.8, 92.9, 92.8, 92.9, 92.6, 92.6, 92.6, 92.6, 92.6, 92.8, 92.7, 92.9, 92.8, 92.4, 92.7, 82.4];
+const MF_RETURN_RATE = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 4.7, 4.8, 4.9, 4.9, 4.8, 5.0, 4.9, 5.0, 4.9, 5.0, 4.8, 4.9, 4.7, 4.9, 5.1, 4.9, 2.9];
+const CF_LABELS = ["direct", "organic", "app", "rep"];
+const CF_DELIVERED = [92.1, 91.8, 91.8, 92.0];
+const CF_RETURNED = [4.5, 4.7, 4.7, 4.6];
+const CF_CANCELLED = [0.5, 0.5, 0.5, 0.5];
+const CF_AOV = [79207.0, 81162.0, 88011.0, 115931.0];
+const SR_LABELS = ["Cancel Line", "Substitute", "Backorder"];
+const SR_VALS = [1790357, 1074959, 717827];
+const SM_MONTHS = ["2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06"];
+const SM_CANCEL = [44490, 47778, 60466, 66767, 73579, 74846, 83096, 86933, 86707, 94896, 98113, 111532, 120099, 116092, 139679, 156099, 161582, 167603];
+const SM_SUB = [26832, 28318, 36306, 39723, 44523, 45393, 49711, 51931, 51874, 56730, 59108, 66772, 72620, 69411, 84370, 93056, 97895, 100386];
+const SM_BACK = [17878, 19067, 24300, 26760, 29388, 30231, 33250, 34705, 34859, 38309, 39275, 44984, 48583, 45986, 56146, 62393, 64986, 66727];
+const RBC_LABELS = ["Beverages", "Cleaning", "Food", "HORECA Supplies", "Paper & Hygiene", "Personal Care", "Stationery/Other"];
+const RBC_RATES = [4.67, 4.67, 4.67, 4.64, 4.68, 4.62, 4.76];
+const INV_CAT_LABELS = ["Beverages", "Cleaning", "Food", "HORECA Supplies", "Paper & Hygiene", "Personal Care", "Stationery/Other"];
+const INV_CAT_OOS = [12, 5, 11, 4, 4, 8, 2];
+const INV_CAT_N = [120, 100, 110, 33, 54, 74, 9];
+
+function renderFul(){
+  new Chart(document.getElementById('funnel'), {
+    type:'bar',
+    data:{ labels: FUNNEL_LABELS.map(l=>l.replace('Order','')), datasets:[{ label:'Orders', data: FUNNEL_VALS, backgroundColor:[COLORS[5],COLORS[2],COLORS[1],COLORS[3],COLORS[4]], borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}},
+      scales:{ x:{ title:{display:true,text:'# orders (terminal status)'} } } }
+  });
+  new Chart(document.getElementById('stockoutMix'), {
+    type:'doughnut',
+    data:{ labels: SR_LABELS, datasets:[{ data: SR_VALS, backgroundColor:[COLORS[3],COLORS[0],COLORS[2]], borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ tooltip:{ callbacks:{ label:(ctx)=>{ const tot = SR_VALS.reduce((a,b)=>a+b,0); return ctx.label+': '+ctx.parsed.toLocaleString()+' ('+(100*ctx.parsed/tot).toFixed(1)+'%)'; } } } } }
+  });
+  new Chart(document.getElementById('fulfilTrend'), {
+    type:'line',
+    data:{ labels: MF_MONTHS, datasets:[
+      {label:'Fulfilment rate %', data: MF_RATE, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.12)', fill:true, tension:.2, pointRadius:2},
+      {label:'Return rate %', data: MF_RETURN_RATE, borderColor:'#ef4444', backgroundColor:'transparent', tension:.2, pointRadius:2, borderDash:[4,3]}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ min:0, max:105, title:{display:true,text:'%'} } },
+      plugins:{ annotation: undefined } }
+  });
+  new Chart(document.getElementById('channelPerf'), {
+    type:'bar',
+    data:{ labels: CF_LABELS, datasets:[
+      {label:'Delivered %', data: CF_DELIVERED, backgroundColor:'#10b981', borderRadius:3},
+      {label:'Returned %', data: CF_RETURNED, backgroundColor:'#f59e0b', borderRadius:3},
+      {label:'Cancelled %', data: CF_CANCELLED, backgroundColor:'#ef4444', borderRadius:3}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ y:{ title:{display:true,text:'%'} } },
+      plugins:{ tooltip:{ callbacks:{ afterBody:(items)=>{ const i=items[0].dataIndex; return 'AOV: EGP '+CF_AOV[i].toLocaleString(); } } } } }
+  });
+  new Chart(document.getElementById('stockoutTrend'), {
+    type:'bar',
+    data:{ labels: SM_MONTHS, datasets:[
+      {label:'Cancel line', data: SM_CANCEL, backgroundColor:'#ef4444', stack:'s'},
+      {label:'Substitute', data: SM_SUB, backgroundColor:'#3b82f6', stack:'s'},
+      {label:'Backorder', data: SM_BACK, backgroundColor:'#f59e0b', stack:'s'}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{stacked:true}, y:{stacked:true, title:{display:true,text:'Events / month'}} } }
+  });
+  new Chart(document.getElementById('returnsByCategory'), {
+    type:'bar',
+    data:{ labels: RBC_LABELS, datasets:[{ label:'Return rate %', data: RBC_RATES, backgroundColor:'#f59e0b', borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ y:{ min:4, max:5, title:{display:true,text:'% (note compressed axis — band is just 0.13pp)'} } } }
+  });
+  new Chart(document.getElementById('oosByCategory'), {
+    type:'bar',
+    data:{ labels: INV_CAT_LABELS, datasets:[
+      {label:'Stocked-out SKUs', data: INV_CAT_OOS, backgroundColor:'#ef4444', borderRadius:4},
+      {label:'Total SKUs', data: INV_CAT_N, backgroundColor:'#e2e8f0', borderRadius:4}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{ title:{display:true,text:'# SKUs'} } } }
+  });
+}
+
+// ============================================================
+// ASSORTMENT DATA
+// ============================================================
+const CAT_LABELS = ["FOD", "BEV", "CLN", "PAP", "PER", "HOR", "STA"];
+const CAT_REVENUE = [20.89, 18.91, 16.54, 10.17, 9.9, 3.87, 0.49];
+const CAT_SKUS = [110, 120, 100, 54, 74, 33, 9];
+const CAT_AVG_PRICE = [747.0, 726.0, 932.0, 884.0, 704.0, 1280.0, 522.0];
+const DCS_LABELS = ["A", "B", "C"];
+const DCS_REVENUE = [39.53, 30.93, 10.3];
+const DCS_SKUS = [230, 500, 83];
+const TOP_SKUS = [["FOD-OIL-AFIA-1KG12-01", "FOD", 208884610.0, 127993, 9994], ["FOD-OIL-ALRB-1KG12", "FOD", 202752048.0, 137282, 10023], ["FOD-OIL-ALRB-1L6-01", "FOD", 202578221.0, 117672, 9951], ["FOD-SAU-HNZ-500ML24", "FOD", 201081783.0, 165584, 9977], ["FOD-SPE-LCLS-5KG", "FOD", 200577612.0, 199738, 10031], ["FOD-OIL-CRSC-10KG", "FOD", 200510569.0, 128953, 9888], ["FOD-SNK-DRTS-1KG12", "FOD", 199386315.0, 327338, 9970], ["PAP-TIS-KLNX-1KG12", "PAP", 198791923.0, 120732, 10067], ["FOD-DAI-NSCM-330CAN24-01", "FOD", 198165072.0, 269845, 10082], ["FOD-OIL-ALRB-500ML24", "FOD", 197824760.0, 282543, 9890], ["PAP-PKG-NAVG-2L6", "PAP", 197711494.0, 198562, 9872], ["PAP-OFF-FINE-250ML12", "PAP", 197288729.0, 262858, 9830]];
+const BOTTOM_SKUS = [["STA-FIL-FINE-10KG", "STA", 51195126.0, 138268, 2844], ["STA-WRI-BIC-500ML24", "STA", 52636045.0, 138378, 2918], ["STA-WRI-PTLOT-330CAN24", "STA", 52872680.0, 147082, 2950], ["STA-FIL-FINE-2L6", "STA", 53527258.0, 97038, 3011], ["STA-WRI-BIC-330CAN24", "STA", 54734833.0, 94268, 2905], ["STA-FIL-NAVG-2L6", "STA", 55659428.0, 81434, 2899], ["STA-WRI-PTLOT-1KG12", "STA", 56212578.0, 121145, 2857], ["STA-FIL-NAVG-1KG12", "STA", 56875353.0, 61551, 2929], ["STA-WRI-PTLOT-5KG", "STA", 60932989.0, 147452, 2882], ["HOR-CNT-HNZ-10KG", "HOR", 107057609.0, 195290, 6116], ["HOR-CNT-SAFI-330CAN24", "HOR", 108969823.0, 79663, 5951], ["HOR-STO-MAGG-250ML12", "HOR", 110609203.0, 92757, 6115]];
+const PARETO_X = [0.2, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0, 100.0];
+const PARETO_Y = [6.2, 12.0, 17.8, 23.4, 29.0, 34.5, 39.9, 45.0, 50.0, 54.9, 59.7, 64.5, 69.3, 74.0, 78.6, 83.1, 87.2, 91.1, 95.0, 98.5, 100.0];
+const CM_MONTHS = ["2022-07", "2022-08", "2022-09", "2022-10", "2022-11", "2022-12", "2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06", "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12", "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06"];
+const CM_FULL = {"Food": [18.0, 19.6, 22.2, 24.7, 21.2, 22.7, 369.1, 426.7, 562.0, 601.6, 648.9, 689.4, 788.0, 816.0, 820.8, 938.4, 1274.0, 1445.0, 1557.2, 1562.9, 1866.0, 2033.6, 2194.6, 2265.5], "Beverages": [18.3, 25.3, 21.2, 24.2, 20.7, 23.0, 340.8, 382.6, 497.3, 566.5, 601.7, 617.6, 700.8, 740.2, 752.6, 853.3, 1169.9, 1306.9, 1401.4, 1422.5, 1664.7, 1870.0, 1982.8, 2002.8], "Cleaning": [15.6, 19.6, 18.0, 24.0, 21.4, 20.3, 296.6, 339.6, 452.0, 481.2, 512.1, 545.1, 601.4, 648.7, 666.4, 749.2, 1013.1, 1173.2, 1261.2, 1217.7, 1493.9, 1614.2, 1700.6, 1758.2], "Paper & Hygiene": [8.8, 10.8, 9.2, 11.5, 11.4, 9.8, 180.4, 207.1, 266.4, 301.3, 318.7, 337.4, 378.8, 396.3, 391.7, 473.3, 615.0, 723.1, 753.7, 761.2, 905.7, 1007.4, 1047.5, 1089.4], "Personal Care": [12.5, 16.3, 17.3, 14.5, 13.3, 14.3, 172.5, 192.4, 252.4, 296.7, 314.0, 324.2, 366.9, 389.1, 387.7, 445.5, 617.5, 700.5, 732.4, 742.4, 862.1, 982.6, 1018.9, 1072.0], "HORECA Supplies": [5.2, 6.4, 5.5, 6.7, 6.0, 6.5, 70.1, 84.7, 102.1, 120.4, 117.5, 129.9, 139.8, 156.1, 152.2, 177.8, 229.9, 266.1, 292.7, 288.5, 341.7, 384.9, 390.1, 417.4], "Stationery/Other": [1.8, 1.7, 1.8, 1.7, 1.2, 1.7, 7.8, 9.4, 12.9, 16.0, 17.9, 14.7, 18.7, 17.9, 23.2, 20.7, 31.1, 37.5, 34.6, 36.5, 40.5, 44.5, 51.2, 51.8]};
+const CAT_FULL_LABELS = ["Food", "Beverages", "Cleaning", "Paper & Hygiene", "Personal Care", "HORECA Supplies", "Stationery/Other"];
+
+function renderAst(){
+  new Chart(document.getElementById('catRevenue'), {
+    type:'bar',
+    data:{ labels: CAT_FULL_LABELS, datasets:[{ label:'Revenue (EGP B)', data: CAT_REVENUE, backgroundColor: COLORS, borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}},
+      scales:{ x:{ title:{display:true,text:'EGP Billions'} } } }
+  });
+  new Chart(document.getElementById('pareto'), {
+    type:'line',
+    data:{ labels: PARETO_X, datasets:[
+      {label:'Actual cumulative revenue %', data: PARETO_Y, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.15)', fill:true, tension:.15, pointRadius:0},
+      {label:'Perfectly even (diagonal)', data: PARETO_X, borderColor:'#94a3b8', borderDash:[5,4], pointRadius:0, fill:false}
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ x:{ title:{display:true,text:'Cumulative % of SKUs (ranked by revenue)'} }, y:{ title:{display:true,text:'Cumulative % of revenue'}, min:0, max:100 } } }
+  });
+  new Chart(document.getElementById('demandClass'), {
+    type:'doughnut',
+    data:{ labels: DCS_LABELS.map((l,i)=>`Class ${l} (${DCS_SKUS[i]} SKUs)`), datasets:[{ data: DCS_REVENUE, backgroundColor:[COLORS[1],COLORS[0],COLORS[2]], borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ tooltip:{ callbacks:{ label:(ctx)=> ctx.label+': EGP '+ctx.parsed+'B' } } } }
+  });
+  new Chart(document.getElementById('avgPriceByCat'), {
+    type:'bar',
+    data:{ labels: CAT_FULL_LABELS, datasets:[{ label:'Avg unit price (EGP)', data: CAT_AVG_PRICE, backgroundColor:'#8b5cf6', borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ title:{display:true,text:'EGP / unit'} } } }
+  });
+  new Chart(document.getElementById('skuCountByCat'), {
+    type:'bar',
+    data:{ labels: CAT_FULL_LABELS, datasets:[{ label:'# SKUs', data: CAT_SKUS, backgroundColor:'#06b6d4', borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{ title:{display:true,text:'# SKUs'} } } }
+  });
+  document.getElementById('topSkuBody').innerHTML = TOP_SKUS.slice(0,10).map(r=>`<tr>
+      <td class="mono">${r[0]}</td><td><span class="badge b">${r[1]}</span></td><td>${fmtEGP(r[2])}</td><td>${Number(r[3]).toLocaleString()}</td>
+    </tr>`).join('');
+  document.getElementById('bottomSkuBody').innerHTML = BOTTOM_SKUS.slice(0,10).map(r=>`<tr>
+      <td class="mono">${r[0]}</td><td><span class="badge c">${r[1]}</span></td><td>${fmtEGP(r[2])}</td><td>${Number(r[3]).toLocaleString()}</td>
+    </tr>`).join('');
+  new Chart(document.getElementById('catTrend'), {
+    type:'line',
+    data:{ labels: CM_MONTHS, datasets: Object.keys(CM_FULL).map((c,i)=>({
+      label:c, data: CM_FULL[c], borderColor: COLORS[i%COLORS.length], backgroundColor: COLORS[i%COLORS.length], fill:false, tension:.25, pointRadius:1.5
+    })) },
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, scales:{ y:{ title:{display:true,text:'EGP Millions'} } } }
+  });
+}
+
+const renderTab = { fin: renderFin, ful: renderFul, ast: renderAst };
+renderTab.fin();
+rendered.fin = true;
+</script>
+</body>
+</html>

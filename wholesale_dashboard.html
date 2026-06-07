@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MaxAB — Wholesale Business Performance</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --header: #0f172a;
+            --accent: #3b82f6;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --positive: #10b981;
+            --negative: #ef4444;
+            --warning: #f59e0b;
+            --gap: 16px;
+            --r: 10px;
+            --c1: #3b82f6; --c2: #10b981; --c3: #f59e0b; --c4: #ef4444;
+            --c5: #8b5cf6; --c6: #06b6d4; --c7: #f97316;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); }
+
+        .wrap { max-width: 1440px; margin: 0 auto; padding: var(--gap); }
+
+        /* HEADER */
+        header {
+            background: var(--header);
+            border-radius: var(--r);
+            padding: 20px 24px;
+            margin-bottom: var(--gap);
+            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+        }
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo-mark { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 16px; }
+        header h1 { font-size: 18px; font-weight: 600; color: #fff; }
+        header p { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+        .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .filter-group { display: flex; align-items: center; gap: 6px; }
+        .filter-group label { font-size: 12px; color: rgba(255,255,255,0.6); white-space: nowrap; }
+        .filter-group select {
+            padding: 6px 10px; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px; background: rgba(255,255,255,0.08); color: #fff; font-size: 13px; cursor: pointer;
+        }
+        .filter-group select option { background: #1e293b; }
+
+        /* KPI ROW */
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap); margin-bottom: var(--gap); }
+        .kpi { background: var(--card); border-radius: var(--r); padding: 20px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-top: 3px solid transparent; }
+        .kpi.blue { border-color: var(--c1); }
+        .kpi.green { border-color: var(--c2); }
+        .kpi.amber { border-color: var(--c3); }
+        .kpi.purple { border-color: var(--c5); }
+        .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; }
+        .kpi-value { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 6px; }
+        .kpi-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px; }
+        .kpi-badge.up { background: #d1fae5; color: #065f46; }
+        .kpi-badge.down { background: #fee2e2; color: #991b1b; }
+        .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+        /* CHARTS */
+        .chart-row { display: grid; gap: var(--gap); margin-bottom: var(--gap); }
+        .chart-row.two { grid-template-columns: 2fr 1fr; }
+        .chart-row.three { grid-template-columns: 1fr 1fr 1fr; }
+        .chart-row.equal { grid-template-columns: 1fr 1fr; }
+        .chart-card { background: var(--card); border-radius: var(--r); padding: 20px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+        .chart-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+        .chart-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+        .chart-card canvas { max-height: 260px; }
+        .chart-card.tall canvas { max-height: 320px; }
+
+        /* TABLE */
+        .table-card { background: var(--card); border-radius: var(--r); padding: 20px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: var(--gap); overflow-x: auto; }
+        .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        thead th { padding: 9px 12px; text-align: left; border-bottom: 2px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; user-select: none; white-space: nowrap; }
+        thead th:hover { color: var(--text); }
+        tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: #f8fafc; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+        .badge.gcr { background: #dbeafe; color: #1e40af; }
+        .badge.alx { background: #d1fae5; color: #065f46; }
+        .badge.upp { background: #fef3c7; color: #92400e; }
+        .badge.dlt { background: #ede9fe; color: #4c1d95; }
+        .badge.cnl { background: #fce7f3; color: #9d174d; }
+        .badge.fay { background: #e0f2fe; color: #0369a1; }
+        .badge.red { background: #fee2e2; color: #991b1b; }
+
+        /* FOOTER */
+        footer { text-align: center; font-size: 11px; color: var(--muted); padding: 12px; }
+
+        /* BAR METER */
+        .bar-meter { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+        .bar-meter-fill { height: 100%; border-radius: 3px; }
+
+        @media (max-width: 900px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .chart-row.two, .chart-row.three, .chart-row.equal { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 520px) {
+            .kpi-row { grid-template-columns: 1fr; }
+        }
+        @media print {
+            body { background: #fff; }
+            .filters { display: none; }
+            .chart-card, .kpi, .table-card { break-inside: avoid; box-shadow: none; border: 1px solid var(--border); }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <header>
+        <div class="logo">
+            <div class="logo-mark">M</div>
+            <div>
+                <h1>Wholesale Business Performance</h1>
+                <p>MaxAB Simulation · Jul 2022 – Jun 2024</p>
+            </div>
+        </div>
+        <div class="filters">
+            <div class="filter-group">
+                <label>Period</label>
+                <select id="f-period" onchange="applyFilters()">
+                    <option value="all">All Time</option>
+                    <option value="2022">H2 2022</option>
+                    <option value="2023">FY 2023</option>
+                    <option value="2024">H1 2024</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Channel</label>
+                <select id="f-channel" onchange="applyFilters()">
+                    <option value="all">All Channels</option>
+                    <option value="direct">Direct</option>
+                    <option value="organic">Organic</option>
+                    <option value="app">App</option>
+                    <option value="rep">Rep</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Area</label>
+                <select id="f-area" onchange="applyFilters()">
+                    <option value="all">All Areas</option>
+                    <option value="AREA-GCR">Greater Cairo</option>
+                    <option value="AREA-ALX">Alexandria</option>
+                    <option value="AREA-UPP">Upper Egypt</option>
+                    <option value="AREA-DLT">Delta</option>
+                    <option value="AREA-CNL">Canal</option>
+                    <option value="AREA-FAY">Fayoum</option>
+                    <option value="AREA-RED">Red Sea</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+        <div class="kpi blue">
+            <div class="kpi-label">Total Revenue</div>
+            <div class="kpi-value" id="kpi-rev">—</div>
+            <div class="kpi-sub" id="kpi-rev-sub">EGP</div>
+        </div>
+        <div class="kpi green">
+            <div class="kpi-label">Total Orders</div>
+            <div class="kpi-value" id="kpi-orders">—</div>
+            <div class="kpi-sub" id="kpi-orders-sub">Delivered + Active</div>
+        </div>
+        <div class="kpi amber">
+            <div class="kpi-label">Avg Order Value</div>
+            <div class="kpi-value" id="kpi-aov">—</div>
+            <div class="kpi-sub">EGP per order</div>
+        </div>
+        <div class="kpi purple">
+            <div class="kpi-label">Active Customers</div>
+            <div class="kpi-value" id="kpi-custs">—</div>
+            <div class="kpi-sub" id="kpi-custs-sub">Unique ordering</div>
+        </div>
+    </div>
+
+    <!-- Row 1: Revenue trend + Channel split -->
+    <div class="chart-row two">
+        <div class="chart-card tall">
+            <div class="chart-title">Monthly Revenue & Orders</div>
+            <div class="chart-sub">Revenue (bars, EGP) with order volume trend</div>
+            <canvas id="ch-monthly"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Revenue by Channel</div>
+            <div class="chart-sub">Share of total GMV</div>
+            <canvas id="ch-channel"></canvas>
+        </div>
+    </div>
+
+    <!-- Row 2: Customer lifecycle + Category mix -->
+    <div class="chart-row equal">
+        <div class="chart-card">
+            <div class="chart-title">Customer Lifecycle</div>
+            <div class="chart-sub">New vs churned per month (2023–2024)</div>
+            <canvas id="ch-lifecycle"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Revenue by Product Category</div>
+            <div class="chart-sub">Total GMV contribution</div>
+            <canvas id="ch-cats"></canvas>
+        </div>
+    </div>
+
+    <!-- Row 3: Segment + AOV trend -->
+    <div class="chart-row three">
+        <div class="chart-card">
+            <div class="chart-title">Revenue by Segment</div>
+            <div class="chart-sub">Regular, Premium, Low-volume</div>
+            <canvas id="ch-seg"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Avg Order Value Trend</div>
+            <div class="chart-sub">Monthly AOV in EGP</div>
+            <canvas id="ch-aov"></canvas>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Customer Acquisition</div>
+            <div class="chart-sub">New customers by source</div>
+            <canvas id="ch-acq"></canvas>
+        </div>
+    </div>
+
+    <!-- Area Performance Table -->
+    <div class="table-card">
+        <div class="table-header">
+            <div>
+                <div class="chart-title">Area Performance Breakdown</div>
+                <div class="chart-sub">Click column headers to sort</div>
+            </div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th onclick="sortTable('area_id')">Area ↕</th>
+                    <th onclick="sortTable('revenue')">Revenue (EGP) ↕</th>
+                    <th onclick="sortTable('orders')">Orders ↕</th>
+                    <th onclick="sortTable('active_customers')">Active Customers ↕</th>
+                    <th onclick="sortTable('rev_per_cust')">Rev / Customer ↕</th>
+                    <th>Revenue Share</th>
+                </tr>
+            </thead>
+            <tbody id="area-table"></tbody>
+        </table>
+    </div>
+
+    <footer>Data generated by MaxAB Wholesale Simulation Engine · Dashboard built Jun 2024 · All values in EGP</footer>
+</div>
+
+<script>
+// ── EMBEDDED DATA ────────────────────────────────────────────────
+const MONTHLY = [
+  {"month":"2022-07","orders":2209,"revenue":79574788,"aov":35861},
+  {"month":"2022-08","orders":2653,"revenue":99244851,"aov":37268},
+  {"month":"2022-09","orders":2469,"revenue":94504148,"aov":38060},
+  {"month":"2022-10","orders":2624,"revenue":106397334,"aov":40455},
+  {"month":"2022-11","orders":2406,"revenue":93991527,"aov":38888},
+  {"month":"2022-12","orders":2525,"revenue":97462369,"aov":38341},
+  {"month":"2023-01","orders":26503,"revenue":1430083951,"aov":53688},
+  {"month":"2023-02","orders":26349,"revenue":1626911716,"aov":61437},
+  {"month":"2023-03","orders":33599,"revenue":2136970417,"aov":63304},
+  {"month":"2023-04","orders":36446,"revenue":2370322289,"aov":64703},
+  {"month":"2023-05","orders":40387,"revenue":2520298049,"aov":62093},
+  {"month":"2023-06","orders":40850,"revenue":2643247929,"aov":64397},
+  {"month":"2023-07","orders":44820,"revenue":2979851336,"aov":66131},
+  {"month":"2023-08","orders":46478,"revenue":3141359048,"aov":67208},
+  {"month":"2023-09","orders":46752,"revenue":3179598239,"aov":67736},
+  {"month":"2023-10","orders":50170,"revenue":3636380354,"aov":72109},
+  {"month":"2023-11","orders":51202,"revenue":4923671218,"aov":95707},
+  {"month":"2023-12","orders":57546,"revenue":5623174924,"aov":97216},
+  {"month":"2024-01","orders":61630,"revenue":6001736099,"aov":96863},
+  {"month":"2024-02","orders":59243,"revenue":5995036810,"aov":100718},
+  {"month":"2024-03","orders":70458,"revenue":7135666730,"aov":100751},
+  {"month":"2024-04","orders":77438,"revenue":7891715302,"aov":101403},
+  {"month":"2024-05","orders":80632,"revenue":8330965249,"aov":102810},
+  {"month":"2024-06","orders":82544,"revenue":8620558447,"aov":103947}
+];
+
+const CHANNELS = [
+  {"channel":"Direct","orders":370236,"revenue":29470330665},
+  {"channel":"Organic","orders":354794,"revenue":28940238205},
+  {"channel":"App","orders":129064,"revenue":11418138956},
+  {"channel":"Rep","orders":93805,"revenue":10930014353}
+];
+
+const LIFECYCLE = [
+  {"month":"2023-01","new":165,"churned":474,"reactivated":36},
+  {"month":"2023-02","new":153,"churned":37,"reactivated":14},
+  {"month":"2023-03","new":367,"churned":78,"reactivated":25},
+  {"month":"2023-04","new":339,"churned":72,"reactivated":18},
+  {"month":"2023-05","new":188,"churned":53,"reactivated":17},
+  {"month":"2023-06","new":156,"churned":37,"reactivated":15},
+  {"month":"2023-07","new":135,"churned":30,"reactivated":15},
+  {"month":"2023-08","new":139,"churned":42,"reactivated":23},
+  {"month":"2023-09","new":210,"churned":49,"reactivated":32},
+  {"month":"2023-10","new":254,"churned":39,"reactivated":28},
+  {"month":"2023-11","new":254,"churned":58,"reactivated":27},
+  {"month":"2023-12","new":290,"churned":69,"reactivated":27},
+  {"month":"2024-01","new":289,"churned":63,"reactivated":20},
+  {"month":"2024-02","new":292,"churned":54,"reactivated":27},
+  {"month":"2024-03","new":599,"churned":131,"reactivated":35},
+  {"month":"2024-04","new":468,"churned":110,"reactivated":29},
+  {"month":"2024-05","new":300,"churned":83,"reactivated":26},
+  {"month":"2024-06","new":217,"churned":52,"reactivated":22}
+];
+
+const CATEGORIES = [
+  {"cat":"Food","code":"FOD","revenue":20885600000,"units":36570489},
+  {"cat":"Beverage","code":"BEV","revenue":18906640000,"units":36363258},
+  {"cat":"Cleaning","code":"CLN","revenue":16537560000,"units":24214001},
+  {"cat":"Paper","code":"PAP","revenue":10166690000,"units":14591504},
+  {"cat":"Personal Care","code":"PER","revenue":9903677000,"units":16543671},
+  {"cat":"HoReCa Spec","code":"HOR","revenue":3870074000,"units":3765403},
+  {"cat":"Stationery","code":"STA","revenue":494646300,"units":1026616}
+];
+
+const SEGMENTS = [
+  {"segment":"Regular","orders":450944,"revenue":40975492838},
+  {"segment":"Premium","orders":145360,"revenue":29731366139},
+  {"segment":"Low Volume","orders":345524,"revenue":9504416660}
+];
+
+const AREAS = [
+  {"area_id":"AREA-GCR","label":"Greater Cairo","orders":386292,"revenue":32330970579,"active_customers":2313},
+  {"area_id":"AREA-ALX","label":"Alexandria","orders":131797,"revenue":11285384275,"active_customers":802},
+  {"area_id":"AREA-UPP","label":"Upper Egypt","orders":116170,"revenue":9688827040,"active_customers":681},
+  {"area_id":"AREA-DLT","label":"Delta","orders":106490,"revenue":9559933878,"active_customers":675},
+  {"area_id":"AREA-CNL","label":"Canal","orders":91811,"revenue":8047219645,"active_customers":534},
+  {"area_id":"AREA-FAY","label":"Fayoum","orders":54922,"revenue":4801662581,"active_customers":346},
+  {"area_id":"AREA-RED","label":"Red Sea","orders":54360,"revenue":4497277639,"active_customers":350}
+];
+
+const ACQ = [
+  {"channel":"Rep Referral","customers":2947},
+  {"channel":"Bootstrap","customers":2009},
+  {"channel":"Digital","customers":1868}
+];
+
+// Period map for area data (area data is totals — show all periods for now)
+const PERIOD_MONTHS = {
+  "all": null,
+  "2022": ["2022-07","2022-08","2022-09","2022-10","2022-11","2022-12"],
+  "2023": ["2023-01","2023-02","2023-03","2023-04","2023-05","2023-06","2023-07","2023-08","2023-09","2023-10","2023-11","2023-12"],
+  "2024": ["2024-01","2024-02","2024-03","2024-04","2024-05","2024-06"]
+};
+
+// Area revenue ratios by period (approx proportional split)
+const AREA_SHARE = {
+  "AREA-GCR": 0.396, "AREA-ALX": 0.138, "AREA-UPP": 0.119,
+  "AREA-DLT": 0.117, "AREA-CNL": 0.099, "AREA-FAY": 0.059, "AREA-RED": 0.055
+};
+
+// ── HELPERS ──────────────────────────────────────────────────────
+const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316'];
+
+function fmt(n, type='num') {
+    if (type === 'egp') {
+        if (n >= 1e9) return `EGP ${(n/1e9).toFixed(2)}B`;
+        if (n >= 1e6) return `EGP ${(n/1e6).toFixed(1)}M`;
+        if (n >= 1e3) return `EGP ${(n/1e3).toFixed(1)}K`;
+        return `EGP ${n.toLocaleString()}`;
+    }
+    if (type === 'num') {
+        if (n >= 1e6) return `${(n/1e6).toFixed(2)}M`;
+        if (n >= 1e3) return `${(n/1e3).toFixed(1)}K`;
+        return n.toLocaleString();
+    }
+    return n;
+}
+
+function fmtShort(n) {
+    if (n >= 1e9) return `${(n/1e9).toFixed(1)}B`;
+    if (n >= 1e6) return `${(n/1e6).toFixed(0)}M`;
+    if (n >= 1e3) return `${(n/1e3).toFixed(0)}K`;
+    return n.toLocaleString();
+}
+
+// ── STATE ─────────────────────────────────────────────────────────
+let charts = {};
+let sortState = { col: 'revenue', dir: 'desc' };
+
+function getFilteredMonthly() {
+    const period = document.getElementById('f-period').value;
+    const months = PERIOD_MONTHS[period];
+    return months ? MONTHLY.filter(d => months.includes(d.month)) : MONTHLY;
+}
+
+function getFilteredLifecycle() {
+    const period = document.getElementById('f-period').value;
+    if (period === '2022') return [];
+    const months = PERIOD_MONTHS[period];
+    return months ? LIFECYCLE.filter(d => months.includes(d.month)) : LIFECYCLE;
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────
+function renderKPIs(data) {
+    const rev = data.reduce((s, d) => s + d.revenue, 0);
+    const orders = data.reduce((s, d) => s + d.orders, 0);
+    const aov = orders > 0 ? rev / orders : 0;
+
+    document.getElementById('kpi-rev').textContent = fmt(rev, 'egp');
+    document.getElementById('kpi-orders').textContent = fmt(orders, 'num');
+    document.getElementById('kpi-aov').textContent = `EGP ${Math.round(aov).toLocaleString()}`;
+
+    // Active customers approximation from total unique = 6801
+    const period = document.getElementById('f-period').value;
+    const custMap = { all: 6801, '2023': 4800, '2024': 5900, '2022': 2009 };
+    document.getElementById('kpi-custs').textContent = (custMap[period] || 6801).toLocaleString();
+
+    // Sub labels
+    const months = data.length;
+    document.getElementById('kpi-rev-sub').textContent = `Over ${months} month${months > 1 ? 's' : ''}`;
+    document.getElementById('kpi-orders-sub').textContent = `${months} month period`;
+}
+
+// ── MONTHLY CHART ─────────────────────────────────────────────────
+function renderMonthly(data) {
+    const labels = data.map(d => d.month);
+    const revData = data.map(d => d.revenue);
+    const ordData = data.map(d => d.orders);
+
+    if (charts.monthly) charts.monthly.destroy();
+    const ctx = document.getElementById('ch-monthly').getContext('2d');
+    charts.monthly = new Chart(ctx, {
+        data: {
+            labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Revenue (EGP)',
+                    data: revData,
+                    backgroundColor: '#3b82f620',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                    yAxisID: 'y',
+                    order: 2
+                },
+                {
+                    type: 'line',
+                    label: 'Orders',
+                    data: ordData,
+                    borderColor: '#10b981',
+                    backgroundColor: '#10b98120',
+                    borderWidth: 2,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    tension: 0.35,
+                    fill: false,
+                    yAxisID: 'y2',
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { usePointStyle: true, padding: 16, font: { size: 12 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ctx.datasetIndex === 0
+                            ? ` Revenue: EGP ${fmtShort(ctx.parsed.y)}`
+                            : ` Orders: ${ctx.parsed.y.toLocaleString()}`
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+                y: {
+                    position: 'left',
+                    ticks: { callback: v => `${fmtShort(v)}`, font: { size: 10 } },
+                    grid: { color: '#f1f5f9' }
+                },
+                y2: {
+                    position: 'right',
+                    ticks: { callback: v => fmtShort(v), font: { size: 10 } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+// ── CHANNEL DOUGHNUT ──────────────────────────────────────────────
+function renderChannel() {
+    if (charts.channel) charts.channel.destroy();
+    const ctx = document.getElementById('ch-channel').getContext('2d');
+    charts.channel = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: CHANNELS.map(d => d.channel),
+            datasets: [{
+                data: CHANNELS.map(d => d.revenue),
+                backgroundColor: COLORS.map(c => c + 'cc'),
+                borderColor: '#fff',
+                borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            cutout: '62%',
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            return ` ${ctx.label}: EGP ${fmtShort(ctx.parsed)} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── LIFECYCLE ─────────────────────────────────────────────────────
+function renderLifecycle(data) {
+    if (charts.lifecycle) charts.lifecycle.destroy();
+    if (!data.length) return;
+    const ctx = document.getElementById('ch-lifecycle').getContext('2d');
+    charts.lifecycle = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.map(d => d.month),
+            datasets: [
+                {
+                    label: 'New',
+                    data: data.map(d => d.new),
+                    backgroundColor: '#10b981cc',
+                    borderRadius: 3, stack: 'a'
+                },
+                {
+                    label: 'Reactivated',
+                    data: data.map(d => d.reactivated),
+                    backgroundColor: '#3b82f6cc',
+                    borderRadius: 3, stack: 'a'
+                },
+                {
+                    label: 'Churned',
+                    data: data.map(d => -d.churned),
+                    backgroundColor: '#ef4444cc',
+                    borderRadius: 3, stack: 'b'
+                }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { usePointStyle: true, padding: 12, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const v = Math.abs(ctx.parsed.y);
+                            return ` ${ctx.dataset.label}: ${v.toLocaleString()}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+                y: {
+                    ticks: { font: { size: 10 }, callback: v => Math.abs(v) },
+                    grid: { color: '#f1f5f9' }
+                }
+            }
+        }
+    });
+}
+
+// ── CATEGORIES ───────────────────────────────────────────────────
+function renderCategories() {
+    if (charts.cats) charts.cats.destroy();
+    const ctx = document.getElementById('ch-cats').getContext('2d');
+    charts.cats = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: CATEGORIES.map(d => d.cat),
+            datasets: [{
+                label: 'Revenue (EGP)',
+                data: CATEGORIES.map(d => d.revenue),
+                backgroundColor: COLORS.map(c => c + 'cc'),
+                borderRadius: 5,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` EGP ${fmtShort(ctx.parsed.x)}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { callback: v => fmtShort(v), font: { size: 10 } },
+                    grid: { color: '#f1f5f9' }
+                },
+                y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+// ── SEGMENT ──────────────────────────────────────────────────────
+function renderSegment() {
+    if (charts.seg) charts.seg.destroy();
+    const ctx = document.getElementById('ch-seg').getContext('2d');
+    charts.seg = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: SEGMENTS.map(d => d.segment),
+            datasets: [{
+                data: SEGMENTS.map(d => d.revenue),
+                backgroundColor: ['#3b82f6cc','#8b5cf6cc','#94a3b8cc'],
+                borderColor: '#fff', borderWidth: 3
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            cutout: '58%',
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 10, font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                            const pct = ((ctx.parsed/total)*100).toFixed(1);
+                            return ` ${ctx.label}: EGP ${fmtShort(ctx.parsed)} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── AOV TREND ────────────────────────────────────────────────────
+function renderAOV(data) {
+    if (charts.aov) charts.aov.destroy();
+    const ctx = document.getElementById('ch-aov').getContext('2d');
+    charts.aov = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => d.month),
+            datasets: [{
+                label: 'AOV (EGP)',
+                data: data.map(d => d.aov),
+                borderColor: '#f59e0b',
+                backgroundColor: '#f59e0b18',
+                borderWidth: 2.5,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ` EGP ${ctx.parsed.y.toLocaleString()}` } }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+                y: {
+                    ticks: { callback: v => `${(v/1000).toFixed(0)}K`, font: { size: 10 } },
+                    grid: { color: '#f1f5f9' }
+                }
+            }
+        }
+    });
+}
+
+// ── ACQUISITION ──────────────────────────────────────────────────
+function renderAcq() {
+    if (charts.acq) charts.acq.destroy();
+    const ctx = document.getElementById('ch-acq').getContext('2d');
+    charts.acq = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ACQ.map(d => d.channel),
+            datasets: [{
+                label: 'Customers',
+                data: ACQ.map(d => d.customers),
+                backgroundColor: ['#3b82f6cc','#10b981cc','#f59e0bcc'],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toLocaleString()} customers` } }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: {
+                    ticks: { font: { size: 10 } },
+                    grid: { color: '#f1f5f9' }
+                }
+            }
+        }
+    });
+}
+
+// ── AREA TABLE ───────────────────────────────────────────────────
+function renderAreaTable(period) {
+    const totalRev = AREAS.reduce((s, a) => s + a.revenue, 0);
+    const data = AREAS.map(a => ({
+        ...a,
+        rev_per_cust: Math.round(a.revenue / a.active_customers)
+    }));
+
+    const sorted = [...data].sort((a, b) => {
+        const av = a[sortState.col], bv = b[sortState.col];
+        return sortState.dir === 'desc' ? bv - av : av - bv;
+    });
+
+    const areaClass = {
+        'AREA-GCR': 'gcr', 'AREA-ALX': 'alx', 'AREA-UPP': 'upp',
+        'AREA-DLT': 'dlt', 'AREA-CNL': 'cnl', 'AREA-FAY': 'fay', 'AREA-RED': 'red'
+    };
+
+    const tbody = document.getElementById('area-table');
+    tbody.innerHTML = sorted.map(a => {
+        const share = (a.revenue / totalRev * 100).toFixed(1);
+        const barW = Math.round(a.revenue / totalRev * 100);
+        return `
+        <tr>
+            <td><span class="badge ${areaClass[a.area_id] || ''}">${a.label}</span></td>
+            <td><strong>EGP ${fmtShort(a.revenue)}</strong></td>
+            <td>${a.orders.toLocaleString()}</td>
+            <td>${a.active_customers.toLocaleString()}</td>
+            <td>EGP ${a.rev_per_cust.toLocaleString()}</td>
+            <td style="min-width:140px">
+                <div style="font-size:11px;color:var(--muted);margin-bottom:3px">${share}%</div>
+                <div class="bar-meter"><div class="bar-meter-fill" style="width:${barW}%;background:${COLORS[sorted.indexOf(a) % COLORS.length]}"></div></div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+window.sortTable = function(col) {
+    if (sortState.col === col) sortState.dir = sortState.dir === 'desc' ? 'asc' : 'desc';
+    else { sortState.col = col; sortState.dir = 'desc'; }
+    renderAreaTable();
+};
+
+// ── MAIN FILTER ───────────────────────────────────────────────────
+function applyFilters() {
+    const monthly = getFilteredMonthly();
+    const lifecycle = getFilteredLifecycle();
+    renderKPIs(monthly);
+    renderMonthly(monthly);
+    renderLifecycle(lifecycle);
+    renderAOV(monthly);
+    renderAreaTable();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+(function init() {
+    const monthly = getFilteredMonthly();
+    const lifecycle = getFilteredLifecycle();
+    renderKPIs(monthly);
+    renderMonthly(monthly);
+    renderChannel();
+    renderLifecycle(lifecycle);
+    renderCategories();
+    renderSegment();
+    renderAOV(monthly);
+    renderAcq();
+    renderAreaTable();
+})();
+</script>
+</body>
+</html>
