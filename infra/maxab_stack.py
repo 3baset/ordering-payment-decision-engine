@@ -112,7 +112,12 @@ class MaxabStack(Stack):
         orders_table.grant_read_write_data(action_fn)
         action_log_table.grant_write_data(action_fn)
 
-        # Trigger: MODIFY events where decision EXISTS and post_decision_action NOT EXISTS
+        # Trigger: MODIFY events where decision EXISTS
+        # Note: AWS DynamoDB Streams FilterCriteria has a known quirk where combining
+        # {exists:true} and {exists:false} on sibling keys in NewImage silently drops
+        # all records. Idempotency is handled in handler code instead:
+        #   - Lambda checks order.get("post_decision_action") and skips if already set
+        #   - UpdateItem uses ConditionExpression="attribute_not_exists(post_decision_action)"
         action_fn.add_event_source(
             event_sources.DynamoEventSource(
                 orders_table,
@@ -126,7 +131,6 @@ class MaxabStack(Stack):
                         "dynamodb": {
                             "NewImage": {
                                 "decision": lambda_.FilterRule.exists(),
-                                "post_decision_action": lambda_.FilterRule.not_exists(),
                             }
                         },
                     })

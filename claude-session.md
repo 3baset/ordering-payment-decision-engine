@@ -44,27 +44,58 @@ Claude explored the repo, read the simulation engine and data sampler code, pars
 
 ---
 
-### Round 3 — CDK Synth Verification
+### Round 3 — CDK Synth + Fix
 
-**Prompt:** _(TBD — run `cdk synth` and fix any synthesis errors)_
+**Prompt:** "Set up the CDK stack... Deploy and confirm stack creates cleanly."
 
----
+**What happened:** CDK synth raised two errors:
+1. `bisect_on_error` → correct param is `bisect_batch_on_error`
+2. `log_retention` → deprecated, replaced with explicit `aws_logs.LogGroup` construct + `log_group=` param
 
-### Round 4 — CDK Deploy
-
-**Prompt:** _(TBD — deploy to AWS, confirm tables + Lambdas appear in console)_
-
----
-
-### Round 5 — End-to-End Test
-
-**Prompt:** _(TBD — seed 100 records, tail CloudWatch logs, verify decision + action chain fires)_
+**Key diff:** Two param renames + log group refactor in `maxab_stack.py`. Zero logic changes.
 
 ---
 
-### Round 6 — Observability + README
+### Round 4 — CDK Bootstrap + Deploy
 
-**Prompt:** _(TBD — CloudWatch dashboard, cost-estimate.md, full README)_
+**Prompt:** "cd infra && cdk bootstrap && cdk deploy"
+
+**What happened:** Bootstrap created CDKToolkit stack (S3 staging bucket, ECR repo, IAM roles). Deploy created 18 resources in 67 seconds:
+- `maxab-orders` (DynamoDB + Streams)
+- `maxab-action-log` (DynamoDB)
+- `maxab-decision` Lambda + ESM (INSERT filter)
+- `maxab-action` Lambda + ESM (MODIFY filter)
+- IAM evaluator user + Secrets Manager secret
+- CloudWatch dashboard + X-Ray tracing
+
+**Stack ARN:** `arn:aws:cloudformation:us-east-1:563611194201:stack/MaxabStack/b313e170-62a0-11f1-9bf4-12c49ee85b0d`
+
+---
+
+### Round 5 — End-to-End Smoke Test + Filter Debug
+
+**Prompt:** "python scripts/seed.py --limit 10 to do a live end-to-end smoke test and tail CloudWatch logs."
+
+**What happened (Discovery #1 — Stream iterator lag):**
+The 10 seed items weren't processed by the Decision Lambda. Root cause: with `StartingPosition.LATEST`, the Lambda's shard iterator wasn't fully established when the seed ran immediately post-deploy. Writing a manual smoke record (`ORD-SMOKE-001`) triggered the Lambda's first poll, after which the iterator was anchored. Lesson: always verify with a record written well after deploy, not immediately after.
+
+**What happened (Discovery #2 — FilterCriteria `not_exists` quirk):**
+The Action Lambda's filter combined `{"exists": true}` (on `decision`) and `{"exists": false}` (on `post_decision_action`) as sibling keys in `NewImage`. AWS silently dropped all records — no invocations, no error. This is a documented but poorly-surfaced edge case with DynamoDB Streams filter criteria.
+
+**Resolution:** Removed `not_exists` from the filter. Idempotency is already guaranteed in the Lambda code:
+- `if order.get("post_decision_action"): skipped += 1; continue`
+- `ConditionExpression="attribute_not_exists(post_decision_action)"` on the UpdateItem
+
+After filter simplification, full chain confirmed:
+
+```
+ORD-SMOKE-001  premium   →  AUTO_APPROVE   (0.9637)  →  FULFILLED   ✓
+ORD-SMOKE-002  at-risk   →  DECLINE        (0.2412)  →  REJECTED    ✓
+ORD-SMOKE-003  standard  →  MANUAL_REVIEW  (0.6040)  →  ESCALATED   ✓  (priority=medium)
+ORD-SMOKE-004  premium   →  AUTO_APPROVE   (0.9575)  →  FULFILLED   ✓
+```
+
+Decision Lambda: ~150ms avg duration | Action Lambda: ~134–168ms (first invoke), ~2ms (idempotent skips)
 
 ---
 
@@ -72,16 +103,25 @@ Claude explored the repo, read the simulation engine and data sampler code, pars
 
 - **Schema inspection before writing code** — Running `pyarrow` reads to see actual column names before building the seed script prevented field-name mismatches that would have caused silent data gaps.
 - **Scoped prompts** — Keeping each round to one layer (IaC, Lambda, seed) kept Claude Code's output reviewable and reduced hallucinated cross-dependencies.
-- **FilterCriteria for loop prevention** — Using DynamoDB Streams FilterCriteria (not EventBridge + a separate bus) was cleaner, cheaper, and required zero extra IAM permissions.
+- **DynamoDB Streams over EventBridge** — Same stream, two ESMs, zero extra services. Cleaner dependency graph, no EventBridge rules to maintain, zero extra cost.
+- **Code-level idempotency guards** — Having `ConditionExpression` + code-level skips meant the loop prevention worked even after the `not_exists` filter bug was stripped out.
+- **Direct Lambda invoke for debugging** — When the Streams trigger didn't fire, invoking the Action Lambda directly with a synthetic event immediately confirmed the handler code was correct and isolated the issue to the filter layer.
 
 ## What Was Iterated
 
-- **EventBridge vs. Streams** — First draft used EventBridge for the second trigger. Revised to the same DynamoDB Stream with `FilterCriteria` after user feedback — simpler dependency graph, no EventBridge rule to maintain.
-- **Seed payment method field** — Initial seed used `orders.payment_method` (which doesn't exist in this dataset) — corrected to join from `customers.parquet`.
+- **EventBridge vs. Streams** — First draft used EventBridge. Revised to DynamoDB Streams FilterCriteria per user feedback — simpler, cheaper, no extra hop.
+- **Seed payment method field** — Initial seed used `orders.payment_method` (doesn't exist in this dataset) — corrected to join from `customers.parquet`.
+- **`bisect_on_error` → `bisect_batch_on_error`** — CDK param name was wrong; caught at synth time.
+- **`log_retention` → explicit `LogGroup`** — Deprecated CDK API; replaced with explicit log group construct.
+- **`not_exists` filter removed** — Combined `exists: true` + `exists: false` in DynamoDB Streams FilterCriteria silently drops all records. Removed and relied on code-level idempotency instead.
 
 ## What I'd Do Differently
 
-_(TBD — fill after live deploy)_
+- **Use `StartingPosition.TRIM_HORIZON` for smoke testing** — LATEST requires waiting for iterator stabilisation. TRIM_HORIZON processes all backfill immediately, which is better for initial validation (switch to LATEST for production to avoid backlog processing).
+- **DLQ on both ESMs** — Currently poison-pill records exhaust retries (2×) and are silently dropped. An SQS DLQ would capture them for investigation.
+- **Rename `fraud_score` lineage field** — The Decision Lambda writes `fraud_approval_score` (inverted) back using the same key `fraud_score`, overwriting the original raw risk value. Should use distinct field names: `raw_fraud_risk` (original) vs `fraud_approval_component` (scoring lineage).
+- **SSM Parameter Store for thresholds** — Approval/review thresholds (0.70, 0.40) and factor weights (0.40/0.35/0.25) are hardcoded in Lambda. Externalising to SSM enables tuning without redeployment.
+- **Kinesis Firehose → S3 for action log at scale** — DynamoDB works for 100k records; at 10M+, S3+Athena is cheaper for the audit trail.
 
 - [ ] Would use DynamoDB Streams + Kinesis Firehose → S3 for long-term audit log instead of a second DynamoDB table (cheaper at scale)
 - [ ] Would parameterise scoring weights in SSM Parameter Store so they can be tuned without redeployment
