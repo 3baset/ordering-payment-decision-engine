@@ -1,0 +1,10 @@
+simpy==4.1.1
+pydantic==2.7.1
+polars==0.20.31
+faker==25.2.0
+hypothesis==6.102.6
+duckdb==0.10.3
+pyarrow==16.1.0
+numpy==1.26.4
+pyyaml==6.0.1
+pytest==8.2.0
