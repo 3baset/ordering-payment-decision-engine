@@ -1,5 +1,5 @@
 """
-Seed DynamoDB maxab-orders table from Sample A Parquet files.
+Seed DynamoDB oda-orders table from Sample A Parquet files.
 
 Joins orders + customers + rfm_scores to produce denormalised records
 that the Decision Lambda can score without additional lookups.
@@ -165,7 +165,7 @@ def write_to_dynamo(items: list[dict], table_name: str, dry_run: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Seed DynamoDB from Sample A Parquet")
-    parser.add_argument("--table",   default="maxab-orders", help="DynamoDB table name")
+    parser.add_argument("--table",   default="oda-orders", help="DynamoDB table name")
     parser.add_argument("--limit",   type=int, default=None,  help="Max rows to seed (default: all)")
     parser.add_argument("--dry-run", action="store_true",     help="Print first item, no writes")
     args = parser.parse_args()

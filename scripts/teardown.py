@@ -11,7 +11,7 @@ import argparse
 import sys
 import boto3
 
-TABLES = ["maxab-orders", "maxab-action-log"]
+TABLES = ["oda-orders", "oda-action-log"]
 
 
 def empty_table(ddb, table_name: str) -> int:

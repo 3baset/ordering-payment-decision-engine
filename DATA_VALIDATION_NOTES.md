@@ -1,4 +1,4 @@
-# MaxAB Simulation — Data Validation & Realism Notes
+# ODA Simulation — Data Validation & Realism Notes
 **Scope:** Independent profiling of all 13 output tables (952K orders / 4.2M order lines / 6,824 customers / 18 months live + 6 months bootstrap, Jul 2022–Jun 2024)
 **Companion to:** `simulation_engine/output/DATA_QUALITY_REPORT.md` (the engine's own self-assessment, scored 8.5/10 for *ML usability*). This document scores a different question: **if an analyst opened this data cold, would it look real?** That lens surfaces issues the usability-focused report doesn't emphasize.
 

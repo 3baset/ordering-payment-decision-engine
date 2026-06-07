@@ -37,3 +37,13 @@ cdk.context.json
 *.key
 credentials
 .aws/credentials
+
+# Local dev notes (not for public repo)
+TODO.md
+
+# Test cache
+.pytest_cache/
+
+# Lambda layers (if added later)
+lambdas/*/package/
+lambdas/*/.venv/

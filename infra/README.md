@@ -1,6 +1,6 @@
-# MaxAB Case Study — Event-Driven Ordering Decisioning Pipeline
+# ODA — Ordering Decisioning Agent
 
-An AWS-native, event-driven order decisioning system built for the MaxAB Growth Lead assessment. Built end-to-end with Claude Code (Sonnet 4.6) — see [`claude-session.md`](../claude-session.md) for the full prompt log and reflection.
+An AWS-native, event-driven order decisioning system. Built end-to-end with Claude Code (Sonnet 4.6) — see [`claude-session.md`](../claude-session.md) for the full prompt log and reflection.
 
 ---
 
@@ -14,7 +14,7 @@ An AWS-native, event-driven order decisioning system built for the MaxAB Growth 
                     │ BatchWriteItem (INSERT)
                     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  DynamoDB  maxab-orders                                              │
+│  DynamoDB  oda-orders                                                │
 │  Streams: NEW_AND_OLD_IMAGES                                        │
 └──────┬────────────────────────────────────────────────────────────┘
        │                                       │
@@ -24,9 +24,9 @@ An AWS-native, event-driven order decisioning system built for the MaxAB Growth 
        ▼                                  post_decision_action NOT EXISTS
 ┌─────────────────┐                            │
 │ Decision Lambda │                            ▼
-│ maxab-decision  │                   ┌─────────────────┐
+│ oda-decision    │                   ┌─────────────────┐
 │                 │                   │  Action Lambda  │
-│ 3-factor score: │                   │  maxab-action   │
+│ 3-factor score: │                   │  oda-action     │
 │  LTV  (×0.40)  │                   │                 │
 │  Fraud (×0.35) │                   │  AUTO_APPROVE → │
 │  Payment(×0.25)│                   │    FULFILLED    │
@@ -38,7 +38,7 @@ An AWS-native, event-driven order decisioning system built for the MaxAB Growth 
          │ UpdateItem (decision +              │ UpdateItem (post_decision_action)
          │ lineage fields)                     │ PutItem (action log)
          ▼                                     ▼
-  maxab-orders                         maxab-action-log
+  oda-orders                           oda-action-log
   (decision written back)              (audit trail)
 ```
 
@@ -122,20 +122,20 @@ After seeding, DynamoDB Streams will fire and the Lambda chain will run automati
 
 ```bash
 # Tail Decision Lambda logs
-aws logs tail /aws/lambda/maxab-decision --follow
+aws logs tail /aws/lambda/oda-decision --follow
 
 # Tail Action Lambda logs
-aws logs tail /aws/lambda/maxab-action --follow
+aws logs tail /aws/lambda/oda-action --follow
 
 # Query decisions table (check one order)
 aws dynamodb get-item \
-  --table-name maxab-orders \
+  --table-name oda-orders \
   --key '{"order_id": {"S": "ORD-XXXXXXXX"}}' \
   --projection-expression "order_id, decision, post_decision_action, decision_score"
 
 # Count action log records
 aws dynamodb scan \
-  --table-name maxab-action-log \
+  --table-name oda-action-log \
   --select COUNT
 ```
 
@@ -143,11 +143,11 @@ aws dynamodb scan \
 
 ## Observability
 
-- **CloudWatch Dashboard**: `MaxAB-Pipeline` — Lambda invocations and errors per 5 min
+- **CloudWatch Dashboard**: `ODA-Pipeline` — Lambda invocations and errors per 5 min
 - **X-Ray tracing**: enabled on both Lambdas for distributed trace visualization
 - **Structured JSON logs**: every decision and action emits a structured event (`event`, `order_id`, `outcome`, score components)
 
-View the dashboard: AWS Console → CloudWatch → Dashboards → `MaxAB-Pipeline`
+View the dashboard: AWS Console → CloudWatch → Dashboards → `ODA-Pipeline`
 
 ---
 
@@ -180,7 +180,7 @@ See [`docs/iam-setup.md`](docs/iam-setup.md) for instructions on retrieving the 
 ```
 infra/
   app.py              CDK entry point
-  maxab_stack.py      Full stack definition (tables, Lambdas, IAM, CloudWatch)
+  oda_stack.py        Full stack definition (tables, Lambdas, IAM, CloudWatch)
   cdk.json
 
 lambdas/

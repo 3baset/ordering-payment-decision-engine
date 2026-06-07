@@ -1,4 +1,4 @@
-# MaxAB Simulation Data — Analyst Guide
+# ODA Simulation Data — Analyst Guide
 
 A practical reference for exploring the synthetic Egyptian B2B wholesale dataset. Covers data model, table schemas, key joins, ready-to-run queries, and known caveats.
 

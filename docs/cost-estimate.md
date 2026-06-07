@@ -21,4 +21,4 @@ All resources are designed to run at $0 within the AWS Free Tier.
 - Streams processing happens only during the seed window.
 - DynamoDB on-demand billing only applies to requests beyond the Free Tier; the table storage of ~100k items (~150 bytes each) ≈ 15 MB, well under 25 GB.
 - Lambda invocations are bounded by the number of seeded records — no polling loop.
-- X-Ray is the only resource that may marginally exceed Free Tier; disable by removing `tracing=lambda_.Tracing.ACTIVE` from `maxab_stack.py` to guarantee $0.
+- X-Ray is the only resource that may marginally exceed Free Tier; disable by removing `tracing=lambda_.Tracing.ACTIVE` from `oda_stack.py` to guarantee $0.
