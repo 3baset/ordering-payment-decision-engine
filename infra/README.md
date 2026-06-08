@@ -55,13 +55,13 @@ The Decision Lambda applies a weighted composite of 3 independent factors:
 
 | Factor | Weight | Source | Signal |
 |--------|--------|--------|--------|
-| Customer LTV tier | 40% | `customer_segment` (RFM) | premium=1.0, standard=0.6, at-risk=0.2 |
-| Fraud risk (inverted) | 35% | `fraud_score` [0,1] | 1 − fraud_score |
-| Payment method × basket | 25% | `payment_method` + `total_amount` | credit=1.0, cod=0.5; penalised for large baskets |
+| Customer LTV tier | 40% | `customer_segment` (RFM) | premium=1.0 · standard=0.6 · new=0.4 · at-risk=0.2 · churned=0.1 |
+| Fraud risk (inverted) | 35% | `fraud_score` [0,1] | `1 − fraud_score` |
+| Payment method × basket | 25% | `payment_method` + `total_amount` vs `avg_basket_90d` | credit=0.90 · bank_transfer=0.80 · cheque=0.65 · cod=0.50 · cash=0.45; penalised relative to customer's own 90-day avg basket |
 
 **Outcome thresholds:** `≥0.70 → AUTO_APPROVE` · `0.40–0.69 → MANUAL_REVIEW` · `<0.40 → DECLINE`
 
-Full lineage written back: `decision`, `decision_at`, `decision_score`, `ltv_score`, `fraud_score`, `payment_score`, `model_version`.
+Full lineage written back: `decision`, `decision_at`, `decision_score`, `ltv_score`, `fraud_approval_component`, `payment_score`, `model_version`.
 
 ---
 
@@ -192,7 +192,8 @@ scripts/
   teardown.py         Empty tables without destroying stack
 
 tests/
-  test_decision_lambda.py  14 unit tests for scoring logic
+  test_decision_lambda.py  18 unit tests for scoring logic
+  test_action_lambda.py    10 unit tests for routing logic
 
 docs/
   cost-estimate.md    Free Tier breakdown
@@ -206,7 +207,9 @@ claude-session.md     Prompt log, diffs, reflections
 
 ## What I'd Do Differently at Scale
 
-1. **Dead-letter queues (SQS DLQ)** on both Lambda event sources — currently a poison-pill record retries 2× then is silently dropped.
-2. **SSM Parameter Store** for scoring weights — currently hardcoded in the Lambda; tuning requires a redeploy.
-3. **DynamoDB Streams → Kinesis Firehose → S3** for the action log at scale — DynamoDB tables work fine for 100k records but become expensive at 10M+.
-4. **Step Functions** if the chain grows beyond 2 stages — cleaner state visibility and retry semantics than chained Streams.
+1. **SSM Parameter Store** for scoring weights — currently hardcoded in the Lambda; tuning requires a redeploy. SSM allows live weight updates without a code change.
+2. **DynamoDB Streams → Kinesis Firehose → S3** for the action log at scale — DynamoDB tables work fine for 100k records but become expensive at 10M+.
+3. **Step Functions** if the chain grows beyond 2 stages — cleaner state visibility and retry semantics than chained Streams.
+4. **`batchItemFailures` partial response** on both ESMs — currently a failing record retries the full batch; partial response retries only the failed item(s).
+
+> DLQs (`oda-decision-dlq`, `oda-action-dlq`) are already implemented in the current stack. Events that exhaust retries land in the DLQ rather than being silently dropped.

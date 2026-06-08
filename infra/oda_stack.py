@@ -13,6 +13,7 @@ from aws_cdk import (
     aws_logs as logs,
     aws_cloudwatch as cw,
     aws_secretsmanager as sm,
+    aws_sqs as sqs,
 )
 from constructs import Construct
 
@@ -24,34 +25,41 @@ class OdaStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # ── Tables ──────────────────────────────────────────────────────────
+        # DEMO ONLY — change RemovalPolicy to RETAIN before production
         orders_table = dynamodb.Table(
             self, "OrdersTable",
             table_name="oda-orders",
             partition_key=dynamodb.Attribute(name="order_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
-            removal_policy=RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY,  # DEMO ONLY — change to RETAIN before production
         )
         orders_table.add_global_secondary_index(
             index_name="customer_id-index",
             partition_key=dynamodb.Attribute(name="customer_id", type=dynamodb.AttributeType.STRING),
         )
 
+        # DEMO ONLY — change RemovalPolicy to RETAIN before production
         action_log_table = dynamodb.Table(
             self, "ActionLogTable",
             table_name="oda-action-log",
             partition_key=dynamodb.Attribute(name="action_id", type=dynamodb.AttributeType.STRING),
             sort_key=dynamodb.Attribute(name="order_id", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
-            removal_policy=RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY,  # DEMO ONLY — change to RETAIN before production
         )
 
-        # ── Shared Lambda environment ────────────────────────────────────────
-        common_env = {
-            "ORDERS_TABLE": orders_table.table_name,
-            "ACTION_LOG_TABLE": action_log_table.table_name,
-            "LOG_LEVEL": "INFO",
-        }
+        # ── Dead-Letter Queues ───────────────────────────────────────────────
+        decision_dlq = sqs.Queue(
+            self, "DecisionDlq",
+            queue_name="oda-decision-dlq",
+            retention_period=Duration.days(14),
+        )
+        action_dlq = sqs.Queue(
+            self, "ActionDlq",
+            queue_name="oda-action-dlq",
+            retention_period=Duration.days(14),
+        )
 
         # ── Decision Lambda ──────────────────────────────────────────────────
         decision_log_group = logs.LogGroup(
@@ -66,7 +74,11 @@ class OdaStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="handler.lambda_handler",
             code=lambda_.Code.from_asset(os.path.join(LAMBDA_ROOT, "decision")),
-            environment=common_env,
+            environment={
+                "ORDERS_TABLE": orders_table.table_name,
+                "LOG_LEVEL": "INFO",
+                "MODEL_VERSION": "v1.0",
+            },
             timeout=Duration.seconds(30),
             memory_size=256,
             log_group=decision_log_group,
@@ -82,6 +94,7 @@ class OdaStack(Stack):
                 batch_size=10,
                 bisect_batch_on_error=True,
                 retry_attempts=2,
+                on_failure=event_sources.SqsDlq(decision_dlq),
                 filters=[
                     lambda_.FilterCriteria.filter({
                         "eventName": lambda_.FilterRule.is_equal("INSERT"),
@@ -103,7 +116,11 @@ class OdaStack(Stack):
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="handler.lambda_handler",
             code=lambda_.Code.from_asset(os.path.join(LAMBDA_ROOT, "action")),
-            environment=common_env,
+            environment={
+                "ORDERS_TABLE": orders_table.table_name,
+                "ACTION_LOG_TABLE": action_log_table.table_name,
+                "LOG_LEVEL": "INFO",
+            },
             timeout=Duration.seconds(30),
             memory_size=256,
             log_group=action_log_group,
@@ -124,6 +141,7 @@ class OdaStack(Stack):
                 batch_size=10,
                 bisect_batch_on_error=True,
                 retry_attempts=2,
+                on_failure=event_sources.SqsDlq(action_dlq),
                 filters=[
                     lambda_.FilterCriteria.filter({
                         "eventName": lambda_.FilterRule.is_equal("MODIFY"),
@@ -138,7 +156,6 @@ class OdaStack(Stack):
             "AmazonDynamoDBReadOnlyAccess",
             "AWSLambda_ReadOnlyAccess",
             "CloudWatchReadOnlyAccess",
-            "AmazonS3ReadOnlyAccess",
         ]:
             evaluator.add_managed_policy(
                 iam.ManagedPolicy.from_aws_managed_policy_name(policy_name)
@@ -165,44 +182,46 @@ class OdaStack(Stack):
         # ── CloudWatch Dashboard ─────────────────────────────────────────────
         dashboard = cw.Dashboard(self, "OdaDashboard", dashboard_name="ODA-Pipeline")
 
-        decision_errors = cw.Metric(
-            namespace="AWS/Lambda",
-            metric_name="Errors",
-            dimensions_map={"FunctionName": decision_fn.function_name},
-            period=Duration.minutes(5),
-            statistic="Sum",
-        )
-        action_errors = cw.Metric(
-            namespace="AWS/Lambda",
-            metric_name="Errors",
-            dimensions_map={"FunctionName": action_fn.function_name},
-            period=Duration.minutes(5),
-            statistic="Sum",
-        )
-        decision_invocations = cw.Metric(
-            namespace="AWS/Lambda",
-            metric_name="Invocations",
-            dimensions_map={"FunctionName": decision_fn.function_name},
-            period=Duration.minutes(5),
-            statistic="Sum",
-        )
-        action_invocations = cw.Metric(
-            namespace="AWS/Lambda",
-            metric_name="Invocations",
-            dimensions_map={"FunctionName": action_fn.function_name},
-            period=Duration.minutes(5),
-            statistic="Sum",
-        )
+        def _lambda_metric(fn: lambda_.Function, metric_name: str, statistic: str = "Sum") -> cw.Metric:
+            return cw.Metric(
+                namespace="AWS/Lambda",
+                metric_name=metric_name,
+                dimensions_map={"FunctionName": fn.function_name},
+                period=Duration.minutes(5),
+                statistic=statistic,
+            )
 
         dashboard.add_widgets(
             cw.GraphWidget(
                 title="Lambda Invocations",
-                left=[decision_invocations, action_invocations],
+                left=[
+                    _lambda_metric(decision_fn, "Invocations"),
+                    _lambda_metric(action_fn,   "Invocations"),
+                ],
                 width=12,
             ),
             cw.GraphWidget(
                 title="Lambda Errors",
-                left=[decision_errors, action_errors],
+                left=[
+                    _lambda_metric(decision_fn, "Errors"),
+                    _lambda_metric(action_fn,   "Errors"),
+                ],
+                width=12,
+            ),
+            cw.GraphWidget(
+                title="Stream IteratorAge (ms) — p99",
+                left=[
+                    _lambda_metric(decision_fn, "IteratorAge", "p99"),
+                    _lambda_metric(action_fn,   "IteratorAge", "p99"),
+                ],
+                width=12,
+            ),
+            cw.GraphWidget(
+                title="Lambda Duration (ms) — p99",
+                left=[
+                    _lambda_metric(decision_fn, "Duration", "p99"),
+                    _lambda_metric(action_fn,   "Duration", "p99"),
+                ],
                 width=12,
             ),
         )
@@ -212,6 +231,8 @@ class OdaStack(Stack):
         CfnOutput(self, "ActionLogTableName", value=action_log_table.table_name)
         CfnOutput(self, "DecisionLambdaArn", value=decision_fn.function_arn)
         CfnOutput(self, "ActionLambdaArn", value=action_fn.function_arn)
+        CfnOutput(self, "DecisionDlqUrl", value=decision_dlq.queue_url)
+        CfnOutput(self, "ActionDlqUrl", value=action_dlq.queue_url)
         CfnOutput(self, "EvaluatorSecretArn",
                   value=f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:oda-evaluator-credentials")
         CfnOutput(self, "DashboardUrl",
