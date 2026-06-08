@@ -6,7 +6,7 @@ from typing import Union
 import polars as pl
 
 from .config import SamplerConfig, load_config
-from .filters import apply_date_window, apply_join, apply_limit
+from .filters import apply_date_window, apply_join
 
 
 @dataclass
@@ -20,6 +20,7 @@ class ManifestEntry:
 @dataclass
 class Manifest:
     entries: list[ManifestEntry] = field(default_factory=list)
+    total_per_sample: dict[str, int] = field(default_factory=dict)
 
     def add(self, sample: str, table: str, rows: int, size_mb: float) -> None:
         self.entries.append(ManifestEntry(sample, table, rows, size_mb))
@@ -31,6 +32,8 @@ class Manifest:
             print(f"{e.sample:<12} {e.table:<28} {e.rows:>10,} {e.size_mb:>8.1f}")
         total_mb = sum(e.size_mb for e in self.entries)
         print(f"\nTotal size: {total_mb:.1f} MB")
+        for sample, total in self.total_per_sample.items():
+            print(f"  {sample}: {total:,} rows across all tables")
 
 
 class Sampler:
@@ -43,14 +46,14 @@ class Sampler:
         output = pathlib.Path(cfg.output_dir)
         manifest = Manifest()
 
-        # ── 1. Load and filter anchor table ─────────────────────────────────
+        # ── Phase 1: Load and filter anchor table ────────────────────────────
         anchor_cfg = next(t for t in cfg.tables if t.split_anchor)
         anchor_df = pl.read_parquet(source / f"{anchor_cfg.name}.parquet")
 
         anchor_dt = self._resolve_anchor_dt(anchor_df, cfg.date_window.anchor)
         anchor_df = apply_date_window(anchor_df, anchor_dt, cfg.date_window.days)
 
-        # ── 2. Stratified 50/50 split ────────────────────────────────────────
+        # ── Phase 2: Stratified 50/50 split ──────────────────────────────────
         anchor_df, strat_cols = self._add_strat_cols(anchor_df)
         anchor_df = (
             anchor_df
@@ -64,47 +67,50 @@ class Sampler:
             .drop(["_rnd", "_rank"] + [c for c in strat_cols if c.startswith("_strat_")])
         )
 
-        # ── 3. Build per-sample anchor slices ────────────────────────────────
+        # ── Phase 3: Build per-sample anchor slices ───────────────────────────
+        # When total_records_per_sample is set, we skip the per-orders cap and let
+        # the global cap in Phase 5 control the final size.
         sample_orders: dict[str, pl.DataFrame] = {}
         for sc in cfg.samples:
             split_val = 0 if sc.split == "even" else 1
             df = anchor_df.filter(pl.col("_split") == split_val).drop("_split")
-            df = self._apply_target_rows(df, cfg.target_rows, cfg.tolerance, cfg.random_seed)
+            if cfg.total_records_per_sample is None and cfg.target_rows is not None:
+                df = self._apply_target_rows(df, cfg.target_rows, cfg.tolerance, cfg.random_seed)
             sample_orders[sc.name] = df
 
-        # ── 4. Resolved cache (per sample, for join lookups) ─────────────────
+        # ── Phase 4: Build all tables per sample into memory ─────────────────
         resolved: dict[str, dict[str, pl.DataFrame]] = {s: {} for s in sample_orders}
 
-        # ── 5. Process all tables ────────────────────────────────────────────
+        # Write static reference tables immediately (not subject to per-sample cap)
         for tc in cfg.tables:
-            if tc.static:
-                df = pl.read_parquet(source / f"{tc.name}.parquet")
-                df = apply_limit(df, tc.limit_rows, tc.limit_mb, cfg.random_seed)
-                ref_dir = output / "reference"
-                ref_dir.mkdir(parents=True, exist_ok=True)
-                out_path = ref_dir / f"{tc.name}.parquet"
-                df.write_parquet(out_path, compression="snappy")
-                mb = out_path.stat().st_size / 1_048_576
-                manifest.add("reference", tc.name, len(df), mb)
-                print(f"  [reference] {tc.name}: {len(df):,} rows ({mb:.1f} MB)")
+            if not tc.static:
+                continue
+            df = pl.read_parquet(source / f"{tc.name}.parquet")
+            ref_dir = output / "reference"
+            ref_dir.mkdir(parents=True, exist_ok=True)
+            out_path = ref_dir / f"{tc.name}.parquet"
+            df.write_parquet(out_path, compression="snappy")
+            mb = out_path.stat().st_size / 1_048_576
+            manifest.add("reference", tc.name, len(df), mb)
+            print(f"  [reference] {tc.name}: {len(df):,} rows ({mb:.1f} MB)")
+
+        # Build anchor slices into resolved cache
+        for sample_name, df in sample_orders.items():
+            resolved[sample_name][anchor_cfg.name] = df
+
+        # Build all non-anchor, non-static tables
+        df_cache: dict[str, pl.DataFrame] = {}  # avoid re-reading the same parquet twice
+
+        for tc in cfg.tables:
+            if tc.static or tc.split_anchor:
                 continue
 
-            if tc.split_anchor:
-                for sample_name, df in sample_orders.items():
-                    resolved[sample_name][tc.name] = df
-                    out_path = self._write(df, output / sample_name / f"{tc.name}.parquet")
-                    mb = out_path.stat().st_size / 1_048_576
-                    manifest.add(sample_name, tc.name, len(df), mb)
-                    print(f"  [{sample_name}] {tc.name}: {len(df):,} rows ({mb:.1f} MB)")
-                continue
-
-            # Non-anchor, non-static: load full table once, filter per sample
-            df_full = pl.read_parquet(source / f"{tc.name}.parquet")
+            if tc.name not in df_cache:
+                df_cache[tc.name] = pl.read_parquet(source / f"{tc.name}.parquet")
 
             for sample_name in sample_orders:
-                df = df_full
+                df = df_cache[tc.name]
 
-                # Apply date_window FIRST (reduces the universe), then join
                 if tc.filter == "date_window":
                     df = apply_date_window(df, anchor_dt, cfg.date_window.days)
 
@@ -117,12 +123,37 @@ class Sampler:
                         )
                     df = apply_join(df, resolved[sample_name][parent_name], tc.join.key)
 
-                df = apply_limit(df, tc.limit_rows, tc.limit_mb, cfg.random_seed)
                 resolved[sample_name][tc.name] = df
+
+        # ── Phase 5: Apply total_records_per_sample cap (proportional trim) ──
+        if cfg.total_records_per_sample:
+            for sample_name in sample_orders:
+                before = sum(len(df) for df in resolved[sample_name].values())
+                resolved[sample_name] = self._apply_total_records_cap(
+                    resolved[sample_name], cfg.total_records_per_sample, cfg.random_seed
+                )
+                after = sum(len(df) for df in resolved[sample_name].values())
+                print(f"  [{sample_name}] total cap: {before:,} → {after:,} rows "
+                      f"(target {cfg.total_records_per_sample:,})")
+
+        # ── Phase 6: Write all per-sample tables and build manifest ───────────
+        for tc in cfg.tables:
+            if tc.static:
+                continue
+            for sample_name in sample_orders:
+                df = resolved[sample_name].get(tc.name)
+                if df is None:
+                    continue
                 out_path = self._write(df, output / sample_name / f"{tc.name}.parquet")
                 mb = out_path.stat().st_size / 1_048_576
                 manifest.add(sample_name, tc.name, len(df), mb)
                 print(f"  [{sample_name}] {tc.name}: {len(df):,} rows ({mb:.1f} MB)")
+
+        # Track per-sample totals
+        for sample_name in sample_orders:
+            manifest.total_per_sample[sample_name] = sum(
+                e.rows for e in manifest.entries if e.sample == sample_name
+            )
 
         manifest.print_summary()
         return manifest
@@ -139,7 +170,6 @@ class Sampler:
         return datetime.fromisoformat(anchor)
 
     def _add_strat_cols(self, df: pl.DataFrame) -> tuple[pl.DataFrame, list[str]]:
-        """Resolve stratify_by names, deriving _strat_month if 'month' is specified."""
         actual: list[str] = []
         for col in self.config.stratify_by:
             if col == "month":
@@ -159,12 +189,10 @@ class Sampler:
     def _apply_target_rows(
         self,
         df: pl.DataFrame,
-        target_rows: int | None,
+        target_rows: int,
         tolerance: float,
         seed: int,
     ) -> pl.DataFrame:
-        if target_rows is None:
-            return df
         lo = int(target_rows * (1 - tolerance))
         hi = int(target_rows * (1 + tolerance))
         if lo <= len(df) <= hi:
@@ -178,6 +206,22 @@ class Sampler:
         return df.sample(n=target_rows, seed=seed, shuffle=True)
 
     @staticmethod
+    def _apply_total_records_cap(
+        tables: dict[str, pl.DataFrame],
+        total_records: int,
+        seed: int,
+    ) -> dict[str, pl.DataFrame]:
+        total = sum(len(df) for df in tables.values())
+        if total <= total_records:
+            return tables
+        ratio = total_records / total
+        result = {}
+        for name, df in tables.items():
+            n = max(1, int(len(df) * ratio))
+            result[name] = df.sample(n=n, seed=seed, shuffle=True) if len(df) > n else df
+        return result
+
+    @staticmethod
     def _write(df: pl.DataFrame, path: pathlib.Path) -> pathlib.Path:
         path.parent.mkdir(parents=True, exist_ok=True)
         df.write_parquet(path, compression="snappy")
@@ -185,8 +229,7 @@ class Sampler:
 
 
 def main(config_path: str) -> None:
-    sampler = Sampler(config_path)
-    sampler.run()
+    Sampler(config_path).run()
 
 
 if __name__ == "__main__":

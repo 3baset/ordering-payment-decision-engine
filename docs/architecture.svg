@@ -1,0 +1,217 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 720" font-family="'Segoe UI', Arial, sans-serif">
+  <!-- Background -->
+  <rect width="1100" height="720" fill="#0f1117" rx="12"/>
+
+  <!-- Title -->
+  <text x="550" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#ffffff">ODA — Ordering Decisioning Agent · System Architecture</text>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ZONE: DATA GENERATION (left column)
+  ═══════════════════════════════════════════════════════════ -->
+  <!-- Zone box -->
+  <rect x="30" y="60" width="300" height="420" rx="8" fill="#1e2130" stroke="#3d4466" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="180" y="82" text-anchor="middle" font-size="11" fill="#8892b0" font-weight="600" letter-spacing="1">DATA GENERATION</text>
+
+  <!-- Simulation Engine box -->
+  <rect x="55" y="95" width="250" height="90" rx="6" fill="#1a2744" stroke="#4a7fa5" stroke-width="1.5"/>
+  <text x="180" y="116" text-anchor="middle" font-size="13" font-weight="700" fill="#64b5f6">Simulation Engine</text>
+  <text x="180" y="133" text-anchor="middle" font-size="10" fill="#8892b0">SimPy · DuckDB · Polars</text>
+  <text x="180" y="150" text-anchor="middle" font-size="10" fill="#8892b0">547 days · Egyptian FMCG wholesale</text>
+  <text x="180" y="167" text-anchor="middle" font-size="10" fill="#a8c7fa">simulation_engine/simulation_runner.py</text>
+
+  <!-- Arrow: Sim Engine → Parquet -->
+  <line x1="180" y1="185" x2="180" y2="210" stroke="#4a7fa5" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+  <text x="210" y="200" font-size="9" fill="#8892b0">~3 GB</text>
+
+  <!-- Parquet Output box -->
+  <rect x="55" y="210" width="250" height="60" rx="6" fill="#1a2744" stroke="#4a7fa5" stroke-width="1.5"/>
+  <text x="180" y="233" text-anchor="middle" font-size="12" font-weight="600" fill="#64b5f6">Parquet Tables</text>
+  <text x="180" y="250" text-anchor="middle" font-size="10" fill="#8892b0">simulation_engine/output/tables/*.parquet</text>
+  <text x="180" y="264" text-anchor="middle" font-size="10" fill="#8892b0">orders · order_lines · customers · rfm · …</text>
+
+  <!-- Arrow: Parquet → Sampler -->
+  <line x1="180" y1="270" x2="180" y2="300" stroke="#4a7fa5" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+
+  <!-- Data Sampler box -->
+  <rect x="55" y="300" width="250" height="80" rx="6" fill="#1a2744" stroke="#4a7fa5" stroke-width="1.5"/>
+  <text x="180" y="323" text-anchor="middle" font-size="12" font-weight="600" fill="#64b5f6">Data Sampler</text>
+  <text x="180" y="340" text-anchor="middle" font-size="10" fill="#8892b0">Stratified 50/50 split · Last 90 days</text>
+  <text x="180" y="355" text-anchor="middle" font-size="10" fill="#8892b0">100k total rows per sample (all tables)</text>
+  <text x="180" y="370" text-anchor="middle" font-size="10" fill="#a8c7fa">data_sampler/ · make sample</text>
+
+  <!-- Arrow: Sampler → Samples A/B -->
+  <line x1="180" y1="380" x2="180" y2="408" stroke="#4a7fa5" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+
+  <!-- Sample A/B box -->
+  <rect x="55" y="408" width="250" height="55" rx="6" fill="#0d2137" stroke="#4a7fa5" stroke-width="1.5"/>
+  <text x="180" y="429" text-anchor="middle" font-size="12" font-weight="600" fill="#64b5f6">Sample A &amp; Sample B</text>
+  <text x="180" y="447" text-anchor="middle" font-size="10" fill="#8892b0">data/sample_a/   ·   data/sample_b/</text>
+  <text x="180" y="462" text-anchor="middle" font-size="10" fill="#8892b0">Disjoint · 100k rows each · Parquet</text>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ZONE: AWS PIPELINE (centre + right)
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="360" y="60" width="690" height="580" rx="8" fill="#1e2130" stroke="#3d4466" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="705" y="82" text-anchor="middle" font-size="11" fill="#8892b0" font-weight="600" letter-spacing="1">AWS (us-east-1)  ·  OdaStack (CDK)</text>
+
+  <!-- Seed Script -->
+  <rect x="385" y="95" width="210" height="60" rx="6" fill="#22302a" stroke="#48bb78" stroke-width="1.5"/>
+  <text x="490" y="119" text-anchor="middle" font-size="12" font-weight="600" fill="#68d391">Seed Script</text>
+  <text x="490" y="136" text-anchor="middle" font-size="10" fill="#8892b0">scripts/seed.py</text>
+  <text x="490" y="150" text-anchor="middle" font-size="10" fill="#8892b0">BatchWriteItem → oda-orders</text>
+
+  <!-- DynamoDB oda-orders -->
+  <rect x="385" y="215" width="210" height="70" rx="6" fill="#2d2020" stroke="#fc8181" stroke-width="1.5"/>
+  <text x="490" y="238" text-anchor="middle" font-size="12" font-weight="600" fill="#fc8181">DynamoDB</text>
+  <text x="490" y="255" text-anchor="middle" font-size="11" font-weight="700" fill="#feb2b2">oda-orders</text>
+  <text x="490" y="272" text-anchor="middle" font-size="10" fill="#8892b0">Streams: NEW_AND_OLD_IMAGES</text>
+
+  <!-- Arrow: Seed → DynamoDB -->
+  <line x1="490" y1="155" x2="490" y2="215" stroke="#48bb78" stroke-width="1.5" marker-end="url(#arr-green)"/>
+  <text x="510" y="190" font-size="9" fill="#8892b0">INSERT</text>
+
+  <!-- DynamoDB Streams fork -->
+  <line x1="490" y1="285" x2="490" y2="310" stroke="#fc8181" stroke-width="1.5"/>
+  <!-- Left branch → Decision Lambda -->
+  <line x1="490" y1="310" x2="600" y2="310" stroke="#fc8181" stroke-width="1.5"/>
+  <line x1="600" y1="310" x2="600" y2="340" stroke="#fc8181" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <text x="545" y="305" font-size="9" fill="#8892b0" text-anchor="middle">INSERT</text>
+
+  <!-- Right branch to Action Lambda -->
+  <line x1="490" y1="310" x2="370" y2="310" stroke="#fc8181" stroke-width="1.5"/>
+  <line x1="370" y1="310" x2="370" y2="440" stroke="#fc8181" stroke-width="1.5"/>
+
+  <!-- Decision Lambda -->
+  <rect x="510" y="340" width="225" height="115" rx="6" fill="#282244" stroke="#9f7aea" stroke-width="1.5"/>
+  <text x="623" y="362" text-anchor="middle" font-size="12" font-weight="700" fill="#b794f4">Decision Lambda</text>
+  <text x="623" y="378" text-anchor="middle" font-size="10" fill="#8892b0">oda-decision</text>
+  <line x1="520" y1="386" x2="726" y2="386" stroke="#9f7aea" stroke-width="0.8" opacity="0.4"/>
+  <text x="623" y="400" text-anchor="middle" font-size="10" fill="#d6bcfa">composite = 0.40×LTV + 0.35×(1−fraud) + 0.25×payment</text>
+  <text x="623" y="416" text-anchor="middle" font-size="10" fill="#8892b0">≥ 0.70 → AUTO_APPROVE (~60%)</text>
+  <text x="623" y="430" text-anchor="middle" font-size="10" fill="#8892b0">0.40–0.69 → MANUAL_REVIEW (~28%)</text>
+  <text x="623" y="444" text-anchor="middle" font-size="10" fill="#8892b0">&lt; 0.40 → DECLINE (~12%)</text>
+
+  <!-- Decision Lambda DLQ -->
+  <rect x="758" y="370" width="120" height="36" rx="5" fill="#2d2020" stroke="#fc8181" stroke-width="1"/>
+  <text x="818" y="386" text-anchor="middle" font-size="9" fill="#fc8181">oda-decision-dlq</text>
+  <text x="818" y="399" text-anchor="middle" font-size="8" fill="#8892b0">SQS DLQ (2 retries)</text>
+  <line x1="735" y1="388" x2="758" y2="388" stroke="#fc8181" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-red-sm)"/>
+
+  <!-- Arrow: Decision Lambda → oda-orders (update) -->
+  <line x1="490" y1="395" x2="510" y2="395" stroke="#9f7aea" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-purple)"/>
+  <text x="500" y="390" font-size="9" fill="#8892b0" text-anchor="middle">UpdateItem</text>
+  <text x="500" y="402" font-size="9" fill="#8892b0" text-anchor="middle">(decision)</text>
+
+  <!-- Arrow: Decision MODIFY → Action Lambda -->
+  <line x1="370" y1="440" x2="385" y2="440" stroke="#fc8181" stroke-width="1.5" marker-end="url(#arr-red)"/>
+  <text x="377" y="432" font-size="9" fill="#8892b0" text-anchor="middle">MODIFY</text>
+
+  <!-- Action Lambda -->
+  <rect x="385" y="415" width="225" height="115" rx="6" fill="#242c22" stroke="#68d391" stroke-width="1.5"/>
+  <text x="497" y="437" text-anchor="middle" font-size="12" font-weight="700" fill="#68d391">Action Lambda</text>
+  <text x="497" y="453" text-anchor="middle" font-size="10" fill="#8892b0">oda-action</text>
+  <line x1="395" y1="461" x2="601" y2="461" stroke="#68d391" stroke-width="0.8" opacity="0.4"/>
+  <text x="497" y="476" text-anchor="middle" font-size="10" fill="#8892b0">AUTO_APPROVE → FULFILLED</text>
+  <text x="497" y="491" text-anchor="middle" font-size="10" fill="#8892b0">MANUAL_REVIEW → ESCALATED</text>
+  <text x="497" y="506" text-anchor="middle" font-size="10" fill="#8892b0">DECLINE → REJECTED</text>
+  <text x="497" y="522" text-anchor="middle" font-size="10" fill="#a0c4a0">+ writes audit log entry</text>
+
+  <!-- Action Lambda DLQ -->
+  <rect x="628" y="448" width="120" height="36" rx="5" fill="#2d2020" stroke="#fc8181" stroke-width="1"/>
+  <text x="688" y="464" text-anchor="middle" font-size="9" fill="#fc8181">oda-action-dlq</text>
+  <text x="688" y="477" text-anchor="middle" font-size="8" fill="#8892b0">SQS DLQ (2 retries)</text>
+  <line x1="610" y1="466" x2="628" y2="466" stroke="#fc8181" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-red-sm)"/>
+
+  <!-- DynamoDB oda-action-log -->
+  <rect x="385" y="565" width="210" height="58" rx="6" fill="#2d2020" stroke="#fc8181" stroke-width="1.5"/>
+  <text x="490" y="588" text-anchor="middle" font-size="12" font-weight="600" fill="#fc8181">DynamoDB</text>
+  <text x="490" y="605" text-anchor="middle" font-size="11" font-weight="700" fill="#feb2b2">oda-action-log</text>
+  <text x="490" y="618" text-anchor="middle" font-size="10" fill="#8892b0">Audit trail (UpdateItem + PutItem)</text>
+
+  <!-- Arrow: Action Lambda → oda-action-log -->
+  <line x1="490" y1="530" x2="490" y2="565" stroke="#68d391" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ZONE: OBSERVABILITY (right panel within AWS)
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="760" y="200" width="270" height="320" rx="6" fill="#1a2130" stroke="#3d4466" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="895" y="218" text-anchor="middle" font-size="10" fill="#8892b0" font-weight="600" letter-spacing="1">OBSERVABILITY</text>
+
+  <text x="780" y="240" font-size="10" font-weight="600" fill="#fbd38d">☁ CloudWatch Dashboard</text>
+  <text x="780" y="256" font-size="9" fill="#8892b0">  ODA-Pipeline — invocations, errors,</text>
+  <text x="780" y="270" font-size="9" fill="#8892b0">  IteratorAge p99, Duration p99</text>
+
+  <line x1="780" y1="278" x2="1010" y2="278" stroke="#3d4466" stroke-width="0.8"/>
+
+  <text x="780" y="296" font-size="10" font-weight="600" fill="#fbd38d">🔍 X-Ray Tracing</text>
+  <text x="780" y="311" font-size="9" fill="#8892b0">  Distributed traces for both Lambdas</text>
+
+  <line x1="780" y1="320" x2="1010" y2="320" stroke="#3d4466" stroke-width="0.8"/>
+
+  <text x="780" y="338" font-size="10" font-weight="600" fill="#fbd38d">📋 Structured JSON Logs</text>
+  <text x="780" y="353" font-size="9" fill="#8892b0">  /aws/lambda/oda-decision</text>
+  <text x="780" y="367" font-size="9" fill="#8892b0">  /aws/lambda/oda-action</text>
+
+  <line x1="780" y1="376" x2="1010" y2="376" stroke="#3d4466" stroke-width="0.8"/>
+
+  <text x="780" y="394" font-size="10" font-weight="600" fill="#fbd38d">🔐 Secrets Manager</text>
+  <text x="780" y="409" font-size="9" fill="#8892b0">  oda-evaluator-credentials</text>
+  <text x="780" y="423" font-size="9" fill="#8892b0">  (7-day expiry · 1Password share)</text>
+
+  <line x1="780" y1="432" x2="1010" y2="432" stroke="#3d4466" stroke-width="0.8"/>
+
+  <text x="780" y="450" font-size="10" font-weight="600" fill="#fbd38d">💵 Estimated Cost</text>
+  <text x="780" y="465" font-size="9" fill="#8892b0">  $0–$0.10 (within Free Tier)</text>
+  <text x="780" y="479" font-size="9" fill="#8892b0">  100k writes ≈ $0.01–$0.04</text>
+  <text x="780" y="493" font-size="9" fill="#8892b0">  Lambda 100k inv. &lt; Free Tier</text>
+  <text x="780" y="507" font-size="9" fill="#8892b0">  Secrets Manager: $0.40/mo</text>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ZONE: STREAMLIT DASHBOARD (bottom)
+  ═══════════════════════════════════════════════════════════ -->
+  <rect x="30" y="500" width="300" height="155" rx="8" fill="#1e2130" stroke="#3d4466" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="180" y="520" text-anchor="middle" font-size="11" fill="#8892b0" font-weight="600" letter-spacing="1">LOCAL DASHBOARD</text>
+
+  <rect x="50" y="528" width="260" height="110" rx="6" fill="#1a2744" stroke="#4a7fa5" stroke-width="1.5"/>
+  <text x="180" y="548" text-anchor="middle" font-size="12" font-weight="600" fill="#64b5f6">Streamlit Dashboard</text>
+  <text x="180" y="564" text-anchor="middle" font-size="10" fill="#8892b0">sampler_dashboard.py</text>
+  <line x1="60" y1="572" x2="300" y2="572" stroke="#4a7fa5" stroke-width="0.8" opacity="0.4"/>
+  <text x="180" y="587" text-anchor="middle" font-size="10" fill="#8892b0">Tab 1: Run sampler · inspect KPIs</text>
+  <text x="180" y="601" text-anchor="middle" font-size="10" fill="#8892b0">Tab 2: Edit &amp; run simulation config</text>
+  <text x="180" y="615" text-anchor="middle" font-size="10" fill="#8892b0">Tab 3: Live Pipeline Test</text>
+  <text x="180" y="631" text-anchor="middle" font-size="10" fill="#a8c7fa">→ select order → DynamoDB → watch Lambda</text>
+
+  <!-- Arrow: Sample A/B → Seed Script -->
+  <line x1="305" y1="435" x2="385" y2="155" stroke="#4a7fa5" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arr-blue)"/>
+  <text x="340" y="310" font-size="9" fill="#8892b0" transform="rotate(-70, 340, 310)">seed.py</text>
+
+  <!-- Arrow: Sample → Dashboard -->
+  <line x1="180" y1="463" x2="180" y2="500" stroke="#4a7fa5" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+
+  <!-- Arrow: Dashboard → DynamoDB (Live Pipeline Test) -->
+  <line x1="310" y1="570" x2="385" y2="250" stroke="#48bb78" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#arr-green)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ARROW MARKERS
+  ═══════════════════════════════════════════════════════════ -->
+  <defs>
+    <marker id="arr-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4a7fa5"/>
+    </marker>
+    <marker id="arr-green" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#48bb78"/>
+    </marker>
+    <marker id="arr-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#fc8181"/>
+    </marker>
+    <marker id="arr-red-sm" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L6,3 z" fill="#fc8181"/>
+    </marker>
+    <marker id="arr-purple" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#9f7aea"/>
+    </marker>
+  </defs>
+
+  <!-- Footer -->
+  <text x="550" y="710" text-anchor="middle" font-size="10" fill="#4a5568">github.com/3baset/ordering-payment-decision-engine  ·  Egyptian FMCG B2B  ·  ODA v1.0</text>
+</svg>

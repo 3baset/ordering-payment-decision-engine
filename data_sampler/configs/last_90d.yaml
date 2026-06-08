@@ -8,8 +8,9 @@ date_window:
 
 stratify_by: [month, channel, status]
 
-target_rows: 100000     # target orders per sample; null = full 50/50 split (~120k each)
-tolerance: 0.10         # ±10% band → 90k–110k rows accepted
+# 100k total rows across ALL tables per sample (orders + all joined tables combined).
+# The sampler joins everything first, then proportionally trims to this target.
+total_records_per_sample: 100000
 
 samples:
   - name: sample_a
@@ -35,11 +36,11 @@ tables:
 
   - name: stockout_events
     join: {parent: orders, key: order_id}
-    filter: date_window   # event table: date-filter first (~960k → ~480k), then join
+    filter: date_window
 
   - name: credit_ledger
     join: {parent: orders, key: customer_id}
-    filter: date_window   # event table: date-filter first (~456k → ~228k), then join
+    filter: date_window
 
   - name: customer_history
     join: {parent: orders, key: customer_id}

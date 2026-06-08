@@ -141,6 +141,14 @@ def run_simulation(config: dict | None = None, days: int | None = None) -> dict:
 
 
 if __name__ == "__main__":
-    days_arg = int(sys.argv[1]) if len(sys.argv) > 1 else None
-    result = run_simulation(days=days_arg)
+    import argparse
+    parser = argparse.ArgumentParser(description="Run the ODA synthetic simulation engine.")
+    parser.add_argument("--config", default="config/simulation_config.yaml",
+                        help="Path to simulation_config.yaml (default: config/simulation_config.yaml)")
+    parser.add_argument("--days", type=int, default=None,
+                        help="Override simulation days from config")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    result = run_simulation(config=cfg, days=args.days)
     print(f"\nDone. {result['events']:,} events → {result['output_dir']}")

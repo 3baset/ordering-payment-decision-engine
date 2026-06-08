@@ -13,56 +13,52 @@ GitHub repo: `https://github.com/3baset/ordering-payment-decision-engine`
 
 ## Current State
 
-### AWS Stack — DEPLOYED, needs one more `cdk deploy`
+### AWS Stack — DEPLOYED
 
-The stack (`OdaStack`) is live in `us-east-1`. The last code changes (DLQs, CloudWatch widgets, IAM fix) were committed and merged but **`cdk deploy` has not been run yet**. Until then:
-- `oda-decision-dlq` and `oda-action-dlq` do not exist in AWS
-- IteratorAge/Duration p99 widgets are not on the dashboard
-- Evaluator IAM policy still has the unused S3 permission
+`OdaStack` is live in `us-east-1`. DLQs, CloudWatch widgets, and IAM are all deployed.
 
-```bash
-cd infra && cdk deploy
-```
+### Data — regenerate after cloning
 
-### Data — needs regeneration
-
-The simulation config changed (payment mix, AOV, growth model). The data in `data/` was removed from git. No sample files exist locally either. Before the Streamlit dashboard or seed script will work, regenerate:
+Data files are **not committed** (gitignored). Use the Makefile:
 
 ```bash
-# Step 1 — re-run simulation (~8–12 min, writes ~3 GB to simulation_engine/output/)
-cd simulation_engine && python simulation_runner.py
-
-# Step 2 — resample
-cd .. && python -m data_sampler data_sampler/configs/last_90d.yaml
-
-# Step 3 — re-seed pipeline (wait ≥30s after cdk deploy)
-python scripts/seed.py --limit 100   # smoke test
-python scripts/seed.py               # full load
+make setup          # install dependencies
+make sim            # ~8–12 min → simulation_engine/output/tables/
+make sample         # 100k total rows per sample → data/sample_a/ + data/sample_b/
+make seed-smoke     # smoke test: seed 100 orders
+make seed           # full load
 ```
+
+Or use the Streamlit dashboard → Simulation Engine tab → Sampler tab.
+
+### Sampler — 100k total records (all tables)
+
+`total_records_per_sample: 100000` caps **all joined tables combined** per sample,
+not just orders. The sampler builds all joins first, then proportionally trims.
 
 ### Tests — all green (28/28)
 ```bash
-pytest tests/   # 18 decision + 10 action lambda tests
+make test   # or: pytest tests/
 ```
 
 ---
 
 ## Submission Checklist
 
-### Technical (do first, before sharing with evaluator)
+### Technical
 
-- [ ] `cd infra && cdk deploy` — picks up DLQs + dashboard + IAM fix
-- [ ] Re-run simulation → resample → re-seed (see commands above)
+- [x] `cdk deploy` — DLQs + dashboard + IAM live
+- [ ] `make sim` → `make sample` → `make seed` — regenerate data and load
 - [ ] Verify end-to-end: seed 50 orders, watch CloudWatch, confirm action-log entries
-- [ ] Generate evaluator credentials: `aws secretsmanager get-secret-value --secret-id oda-evaluator-credentials` → share via 1Password (7-day expiry)
+- [ ] Evaluator credentials: `aws secretsmanager get-secret-value --secret-id oda-evaluator-credentials` → share via 1Password (7-day expiry)
 
 ### Part B Deliverables (highest evaluator weight)
 
-- [ ] **1-page business response** — draft is in `docs/Part_B_Growth_Lead_Response.md`. Needs finalising with: decision distribution numbers (~60% auto-approve / ~28% review / ~12% decline), credit loss reduction framing, rep capacity angle.
-- [ ] **1 slide** — one visual (decision funnel or architecture), three bullets, 3-minute pitch format.
-- [ ] **Loom walkthrough (5–8 min)** — suggested flow:
+- [ ] **1-page business response** — draft in `docs/Part_B_Growth_Lead_Response.md`. Add: decision distribution (~60% auto-approve / ~28% review / ~12% decline), credit loss reduction framing, rep capacity angle.
+- [ ] **1 slide** — use `docs/architecture.svg` as the visual, three bullets, 3-minute pitch.
+- [ ] **Loom walkthrough (5–8 min):**
   1. Open CloudWatch ODA-Pipeline dashboard → show invocations + IteratorAge widgets
-  2. Run `python scripts/seed.py --limit 50` → tail Decision Lambda logs
+  2. Run `make seed-smoke` → tail Decision Lambda logs
   3. Show an order going AUTO_APPROVE and one going MANUAL_REVIEW
   4. Switch to Streamlit Live Pipeline Test tab → select a record → send → watch decision appear
   5. Show the action-log entry for that order
@@ -77,8 +73,10 @@ pytest tests/   # 18 decision + 10 action lambda tests
 | `lambdas/action/handler.py` | Routes to FULFILLED / ESCALATED / REJECTED; writes audit log |
 | `infra/oda_stack.py` | CDK stack definition (tables, Lambdas, DLQs, CloudWatch, IAM) |
 | `scripts/seed.py` | Batch-writes Sample A Parquet → DynamoDB `oda-orders` |
-| `sampler_dashboard.py` | Streamlit: sampler results tab + live pipeline test tab |
+| `Makefile` | One-command setup, sim, sample, test, seed, deploy |
+| `sampler_dashboard.py` | Streamlit: Sampler · Simulation Engine · Live Pipeline Test tabs |
 | `aws_pipeline_tab.py` | Live Pipeline Test tab module |
+| `docs/architecture.svg` | System architecture diagram |
 | `tests/` | 28 unit tests (run with `pytest tests/`) |
 | `docs/Part_B_Growth_Lead_Response.md` | Draft Part B business response |
 | `docs/claude-session.md` | Full build log (prompt → diff → findings) |

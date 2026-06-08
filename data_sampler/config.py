@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 import yaml
 from pydantic import BaseModel, model_validator
 
@@ -20,13 +20,9 @@ class TableConfig(BaseModel):
     join: Optional[JoinConfig] = None
     static: bool = False
     split_anchor: bool = False
-    limit_rows: Optional[int] = None
-    limit_mb: Optional[float] = None
 
     @model_validator(mode="after")
     def check_exclusions(self) -> "TableConfig":
-        if self.limit_rows is not None and self.limit_mb is not None:
-            raise ValueError(f"'{self.name}': limit_rows and limit_mb are mutually exclusive")
         if self.static and self.join is not None:
             raise ValueError(f"'{self.name}': static tables cannot have a join")
         if self.static and self.split_anchor:
@@ -45,6 +41,10 @@ class SamplerConfig(BaseModel):
     random_seed: int = 42
     date_window: DateWindow
     stratify_by: list[str]
+    # Total rows across ALL tables per sample (orders + all joined tables combined).
+    # When set, target_rows is ignored and the sampler proportionally trims after joining.
+    total_records_per_sample: Optional[int] = None
+    # Legacy per-orders cap (used only when total_records_per_sample is None)
     target_rows: Optional[int] = None
     tolerance: float = 0.10
     samples: list[SampleConfig]
