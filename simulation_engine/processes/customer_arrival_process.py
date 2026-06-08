@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 from datetime import timedelta
 from typing import TYPE_CHECKING
@@ -32,8 +33,10 @@ class CustomerArrivalProcess:
         self.config = config
         self.fake = fake
         arr = config.get("customer_arrival", {})
-        self.lambda_base = arr.get("lambda_base", 5.0)
-        self.growth_rate = arr.get("growth_rate", 0.002)
+        self.lambda_base      = arr.get("lambda_base", 5.0)
+        self.lambda_boost     = arr.get("lambda_boost", 0.0)
+        self.boost_decay_rate = arr.get("boost_decay_rate", 0.0)
+        self.growth_rate      = arr.get("growth_rate", 0.001)
         raw_acq = arr.get("acquisition_seasonality", {})
         self.acquisition_seasonality = {int(k): float(v) for k, v in raw_acq.items()}
 
@@ -42,7 +45,9 @@ class CustomerArrivalProcess:
             day = self.env.now
             current_month = (SIM_START + timedelta(days=int(day))).month
             acq_season = self.acquisition_seasonality.get(current_month, 1.0)
-            lambda_t = self.lambda_base * acq_season * (1.0 + self.growth_rate * day)
+            # Boost-decay model: high launch rate decays exponentially to steady state
+            burst = self.lambda_boost * math.exp(-self.boost_decay_rate * day)
+            lambda_t = (self.lambda_base + burst) * acq_season * (1.0 + self.growth_rate * day)
             # Exponential inter-arrival for Poisson process
             interval = random.expovariate(lambda_t)
             yield self.env.timeout(interval)
