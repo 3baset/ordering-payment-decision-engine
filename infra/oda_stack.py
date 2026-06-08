@@ -86,7 +86,9 @@ class OdaStack(Stack):
         )
         orders_table.grant_read_write_data(decision_fn)
 
-        # Trigger: INSERT events on orders table → Decision Lambda
+        # Trigger: INSERT + MODIFY events on orders table → Decision Lambda
+        # Loop prevention is code-level: Decision Lambda skips records where
+        # NewImage already contains a 'decision' attribute (set by a prior run).
         decision_fn.add_event_source(
             event_sources.DynamoEventSource(
                 orders_table,
@@ -97,7 +99,7 @@ class OdaStack(Stack):
                 on_failure=event_sources.SqsDlq(decision_dlq),
                 filters=[
                     lambda_.FilterCriteria.filter({
-                        "eventName": lambda_.FilterRule.is_equal("INSERT"),
+                        "eventName": lambda_.FilterRule.or_("INSERT", "MODIFY"),
                     })
                 ],
             )

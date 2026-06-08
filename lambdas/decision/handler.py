@@ -1,5 +1,5 @@
 """
-Decision Lambda — triggered by DynamoDB Streams INSERT events on oda-orders.
+Decision Lambda — triggered by DynamoDB Streams INSERT + MODIFY events on oda-orders.
 
 Reads order + customer context, applies 3-factor scoring:
   1. Customer LTV tier  (RFM segment → weight 0.40)
@@ -138,7 +138,9 @@ def lambda_handler(event: dict, context: Any) -> dict:
     errors    = 0
 
     for record in event.get("Records", []):
-        if record.get("eventName") != "INSERT":
+        # Skip if already scored — handles re-delivery of MODIFY events without
+        # double-processing. ConditionExpression on UpdateItem is the final guard.
+        if "decision" in record.get("dynamodb", {}).get("NewImage", {}):
             skipped += 1
             continue
 
