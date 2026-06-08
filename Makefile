@@ -8,7 +8,7 @@
 
 .DEFAULT_GOAL := help
 VENV          := .venv
-PYTHON        := $(VENV)/bin/python3
+PYTHON        := $(CURDIR)/$(VENV)/bin/python3
 SIM_DIR       := simulation_engine
 DATA_DIR      := data
 SIM_OUTPUT    := $(SIM_DIR)/output/tables
