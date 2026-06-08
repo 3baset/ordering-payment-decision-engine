@@ -117,6 +117,17 @@ ordering-decisioning-agent/
 
 ## AWS Pipeline (Part A)
 
+### Store Choice — DynamoDB
+
+| Dimension | DynamoDB | S3 + Athena | RDS (PostgreSQL) |
+|-----------|----------|-------------|-----------------|
+| **Latency** | Single-digit ms `GetItem`/`UpdateItem` by key | Seconds per query (OLAP scan) | <10 ms but requires connection pool + VPC |
+| **Access pattern** | Point lookup and update by `order_id` — exactly what a decisioning engine needs | Optimised for full-table analytics, not per-record writes | Works, but adds schema migrations and connection management overhead |
+| **Cost** | On-demand billing, zero minimum; 25 GB + 200M requests/month free | Pay per query + S3 storage; acceptable for analytics, not for a write-heavy stream | Running instance 24/7 even at zero load (~$15/month minimum outside Free Tier) |
+| **Streams** | Native DynamoDB Streams — trigger chain needs no additional broker | Requires EventBridge or SQS to bridge S3 events to Lambda | No native CDC without additional tools (Debezium, etc.) |
+
+**Decision:** DynamoDB is the only store that satisfies all three constraints simultaneously — sub-10 ms point access, native stream triggers, and zero-minimum cost inside the Free Tier. S3+Athena would be the right choice if the primary workload were analytics over the full dataset rather than per-record decisioning.
+
 ### Decision Scoring Model
 
 | Factor | Weight | Values | Signal |
@@ -161,7 +172,7 @@ aws logs tail /aws/lambda/oda-action --follow
 
 ### Observability
 
-- **CloudWatch Dashboard** `ODA-Pipeline` — invocations, errors, IteratorAge p99, Duration p99
+- **CloudWatch Dashboard** `ODA-Pipeline` — invocations, errors, IteratorAge p99, Duration p99, decision distribution pie (AUTO_APPROVE/MANUAL_REVIEW/DECLINE), action distribution pie (FULFILLED/ESCALATED/REJECTED)
 - **SQS DLQs** — `oda-decision-dlq` and `oda-action-dlq` after 2 retries
 - **X-Ray tracing** — distributed traces for both Lambdas
 - **Structured JSON logs** — every decision emits `event`, `order_id`, `outcome`, score components
