@@ -6,7 +6,7 @@ simulation:
   currency:   "EGP"
 
 scale:
-  initial_customers: 2000
+  initial_customers: 20
   sku_count:         500
   initial_suppliers: 50
   reps_per_area:     "3-7"
@@ -58,9 +58,9 @@ orders:
     low_volume: 0.02
     new_30d:    0.15
   basket_lognormal:
-    premium:    {mean_log: 10.92, sigma: 1.0}
-    regular:    {mean_log:  9.92, sigma: 1.2}
-    low_volume: {mean_log:  8.42, sigma: 1.5}
+    premium:    {mean_log: 10.2, sigma: 0.9}
+    regular:    {mean_log:  8.9, sigma: 1.1}
+    low_volume: {mean_log:  7.6, sigma: 1.3}
   recency_boosts:
     over_30d:  0.5
     over_60d:  0.1
@@ -70,6 +70,12 @@ orders:
 
 payments:
   terms_days: 30
+  credit_terms_days_min: 3
+  credit_terms_days_max: 60
+  credit_terms_by_segment:
+    premium:    45
+    regular:    30
+    low_volume: 14
   delay_gamma_scale: 5.0
   success_probability:
     low_risk:    {threshold: 0.3, prob: 0.95}
@@ -100,7 +106,9 @@ inventory:
 
 customer_arrival:
   lambda_base: 5.0
-  growth_rate: 0.002
+  lambda_boost: 25.0
+  boost_decay_rate: 0.03
+  growth_rate: 0.001
   acquisition_seasonality:
     1: 1.00
     2: 1.10

@@ -1,3 +1,8 @@
+# Generated data files — too large for git; regenerate with sampler or download from S3
+data/**/*.parquet
+data/**/*.csv
+data/**/*.json
+
 # Simulation engine — full dataset (too large for git)
 simulation_engine/output/
 simulation_engine/__pycache__/

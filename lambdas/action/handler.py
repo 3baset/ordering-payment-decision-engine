@@ -63,7 +63,7 @@ def _deserialize_dynamo_record(dynamo_map: dict) -> dict:
 def _write_action(order: dict, action: str, detail: str, priority: str) -> None:
     order_id    = order["order_id"]
     now_ms      = int(time.time() * 1000)
-    action_id   = str(uuid.uuid4())
+    action_id   = str(uuid.uuid5(uuid.NAMESPACE_DNS, order_id))
 
     # 1. Write to action log table
     action_log_table.put_item(Item={

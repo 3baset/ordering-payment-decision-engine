@@ -12,6 +12,7 @@ import streamlit as st
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from data_sampler import Sampler, SamplerConfig
+from aws_pipeline_tab import render_pipeline_tab
 
 
 def _t(name: str, **kwargs) -> dict:
@@ -134,43 +135,9 @@ if run_btn:
         _sys.stdout = _orig
         progress.progress(100, "Done")
 
-# ── Results ───────────────────────────────────────────────────────────────────
-if not st.session_state.get("run_success"):
-    st.info("Configure the sampler in the sidebar and click **▶ Run Sampler** to generate samples.")
-    st.stop()
-
-manifest = st.session_state["manifest"]
-data_dir  = pathlib.Path(st.session_state["data_dir"])
-
-st.divider()
-st.subheader("📋 Manifest")
-
-manifest_rows = [
-    {"Sample": e.sample, "Table": e.table, "Rows": e.rows, "Size (MB)": round(e.size_mb, 1)}
-    for e in manifest.entries
-]
-st.dataframe(manifest_rows, use_container_width=True, hide_index=True)
-
-total_mb = sum(e.size_mb for e in manifest.entries)
-non_ref   = [e for e in manifest.entries if e.sample != "reference"]
-st.caption(f"Total size: **{total_mb:.1f} MB** across {len(manifest.entries)} files "
-           f"({sum(e.rows for e in non_ref):,} non-reference rows).")
-
-# ── Business metrics ─────────────────────────────────────────────────────────
-st.divider()
-st.subheader("📊 Business Metrics")
-
-tab_a, tab_b, tab_cmp = st.tabs(["Sample A", "Sample B", "Compare"])
+# ── Helpers (defined before tabs so they're available inside both) ─────────────
 
 COLORS = px.colors.qualitative.Set2
-
-
-def _load_sample(sample_name: str) -> dict[str, pl.DataFrame]:
-    d = data_dir / sample_name
-    tables = {}
-    for p in d.glob("*.parquet"):
-        tables[p.stem] = pl.read_parquet(p)
-    return tables
 
 
 def _fraud_float(df: pl.DataFrame) -> pl.DataFrame:
@@ -179,9 +146,17 @@ def _fraud_float(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def _load_sample_tables(data_dir: pathlib.Path, sample_name: str) -> dict[str, pl.DataFrame]:
+    d = data_dir / sample_name
+    tables = {}
+    for p in d.glob("*.parquet"):
+        tables[p.stem] = pl.read_parquet(p)
+    return tables
+
+
 def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
-    orders   = _fraud_float(tables.get("orders", pl.DataFrame()))
-    payments = tables.get("payments", pl.DataFrame())
+    orders    = _fraud_float(tables.get("orders", pl.DataFrame()))
+    payments  = tables.get("payments", pl.DataFrame())
     customers = tables.get("customers", pl.DataFrame())
 
     if orders.is_empty():
@@ -190,17 +165,16 @@ def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
 
     # ── KPI row ──────────────────────────────────────────────────────────────
     k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("Orders",          f"{len(orders):,}")
-    k2.metric("GMV",             f"EGP {orders['total_value'].sum():,.0f}")
-    k3.metric("Avg Order Value", f"EGP {orders['total_value'].mean():,.0f}")
-    k4.metric("Unique Customers",f"{orders['customer_id'].n_unique():,}")
+    k1.metric("Orders",           f"{len(orders):,}")
+    k2.metric("GMV",              f"EGP {orders['total_value'].sum():,.0f}")
+    k3.metric("Avg Order Value",  f"EGP {orders['total_value'].mean():,.0f}")
+    k4.metric("Unique Customers", f"{orders['customer_id'].n_unique():,}")
     high_fraud = (orders["fraud_score"] > 0.5).sum() if "fraud_score" in orders.schema else 0
-    k5.metric("High-Fraud Orders",f"{high_fraud:,}")
+    k5.metric("High-Fraud Orders", f"{high_fraud:,}")
 
     st.markdown("---")
     col_l, col_r = st.columns(2)
 
-    # Channel mix
     with col_l:
         ch = (orders.group_by("channel").agg(pl.len().alias("orders"))
               .sort("orders", descending=True))
@@ -210,7 +184,6 @@ def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
         fig.update_layout(showlegend=False, height=300)
         st.plotly_chart(fig, use_container_width=True)
 
-    # Status distribution
     with col_r:
         st_df = orders.group_by("status").agg(pl.len().alias("count"))
         fig = px.pie(st_df.to_pandas(), names="status", values="count",
@@ -221,7 +194,6 @@ def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
 
     col_l2, col_r2 = st.columns(2)
 
-    # Fraud score histogram
     with col_l2:
         if "fraud_score" in orders.schema:
             fs = orders["fraud_score"].drop_nulls().to_pandas()
@@ -231,7 +203,6 @@ def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
             fig.update_layout(height=300, showlegend=False)
             st.plotly_chart(fig, use_container_width=True)
 
-    # Payment method mix
     with col_r2:
         if not payments.is_empty() and "payment_method" in payments.schema:
             pm = (payments.group_by("payment_method").agg(pl.len().alias("count"))
@@ -244,7 +215,6 @@ def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
 
     col_l3, col_r3 = st.columns(2)
 
-    # Monthly GMV trend
     with col_l3:
         mo = (orders
               .with_columns(pl.col("created_at").dt.strftime("%Y-%m").alias("month"))
@@ -256,7 +226,6 @@ def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
         fig.update_layout(height=300)
         st.plotly_chart(fig, use_container_width=True)
 
-    # Customer type / segment
     with col_r3:
         if not customers.is_empty() and "customer_type" in customers.schema:
             ct = (customers.group_by("customer_type").agg(pl.len().alias("count"))
@@ -268,57 +237,89 @@ def render_sample(sample_name: str, tables: dict[str, pl.DataFrame]) -> None:
             st.plotly_chart(fig, use_container_width=True)
 
 
-# Render per-sample tabs
-for tab, sname in [(tab_a, "sample_a"), (tab_b, "sample_b")]:
-    with tab:
-        if (data_dir / sname).exists():
-            render_sample(sname, _load_sample(sname))
-        else:
-            st.info(f"{sname} not found — run the sampler first.")
+def _render_sampler_results(manifest, data_dir: pathlib.Path) -> None:
+    st.divider()
+    st.subheader("📋 Manifest")
 
-# Compare tab
-with tab_cmp:
-    if not (data_dir / "sample_a").exists() or not (data_dir / "sample_b").exists():
-        st.info("Both samples must be generated to compare.")
+    manifest_rows = [
+        {"Sample": e.sample, "Table": e.table, "Rows": e.rows, "Size (MB)": round(e.size_mb, 1)}
+        for e in manifest.entries
+    ]
+    st.dataframe(manifest_rows, use_container_width=True, hide_index=True)
+
+    total_mb = sum(e.size_mb for e in manifest.entries)
+    non_ref  = [e for e in manifest.entries if e.sample != "reference"]
+    st.caption(f"Total size: **{total_mb:.1f} MB** across {len(manifest.entries)} files "
+               f"({sum(e.rows for e in non_ref):,} non-reference rows).")
+
+    st.divider()
+    st.subheader("📊 Business Metrics")
+
+    tab_a, tab_b, tab_cmp = st.tabs(["Sample A", "Sample B", "Compare"])
+
+    for tab, sname in [(tab_a, "sample_a"), (tab_b, "sample_b")]:
+        with tab:
+            if (data_dir / sname).exists():
+                render_sample(sname, _load_sample_tables(data_dir, sname))
+            else:
+                st.info(f"{sname} not found — run the sampler first.")
+
+    with tab_cmp:
+        if not (data_dir / "sample_a").exists() or not (data_dir / "sample_b").exists():
+            st.info("Both samples must be generated to compare.")
+        else:
+            sa = _fraud_float(_load_sample_tables(data_dir, "sample_a").get("orders", pl.DataFrame()))
+            sb = _fraud_float(_load_sample_tables(data_dir, "sample_b").get("orders", pl.DataFrame()))
+
+            if sa.is_empty() or sb.is_empty():
+                st.warning("Orders data missing for one or both samples.")
+            else:
+                metrics = {
+                    "Orders":          (len(sa), len(sb)),
+                    "GMV":             (sa["total_value"].sum(), sb["total_value"].sum()),
+                    "Avg Order Value": (sa["total_value"].mean(), sb["total_value"].mean()),
+                    "Customers":       (sa["customer_id"].n_unique(), sb["customer_id"].n_unique()),
+                }
+                st.subheader("Side-by-side KPIs")
+                cols = st.columns(len(metrics))
+                for col, (name, (va, vb)) in zip(cols, metrics.items()):
+                    delta = f"{(vb - va) / va * 100:+.1f}%" if va else "—"
+                    col.metric(f"{name}", f"{va:,.0f}", delta=f"B: {vb:,.0f} ({delta})")
+
+                st.markdown("**Channel Mix — A vs B**")
+                ca = (sa.group_by("channel").agg(pl.len().alias("count"))
+                      .with_columns(pl.lit("Sample A").alias("sample")))
+                cb = (sb.group_by("channel").agg(pl.len().alias("count"))
+                      .with_columns(pl.lit("Sample B").alias("sample")))
+                cmp_df = pl.concat([ca, cb]).to_pandas()
+                fig = px.bar(cmp_df, x="channel", y="count", color="sample",
+                             barmode="group", color_discrete_sequence=COLORS[:2])
+                fig.update_layout(height=320)
+                st.plotly_chart(fig, use_container_width=True)
+
+                st.markdown("**Order Status — A vs B**")
+                sa2 = (sa.group_by("status").agg(pl.len().alias("count"))
+                       .with_columns(pl.lit("Sample A").alias("sample")))
+                sb2 = (sb.group_by("status").agg(pl.len().alias("count"))
+                       .with_columns(pl.lit("Sample B").alias("sample")))
+                cmp2 = pl.concat([sa2, sb2]).to_pandas()
+                fig2 = px.bar(cmp2, x="status", y="count", color="sample",
+                              barmode="group", color_discrete_sequence=COLORS[:2])
+                fig2.update_layout(height=320)
+                st.plotly_chart(fig2, use_container_width=True)
+
+
+# ── Main tabs (always visible) ────────────────────────────────────────────────
+_tab_sampler, _tab_pipeline = st.tabs(["📊 Sampler Results", "🚀 Live Pipeline Test"])
+
+with _tab_pipeline:
+    render_pipeline_tab()
+
+with _tab_sampler:
+    if not st.session_state.get("run_success"):
+        st.info("Configure the sampler in the sidebar and click **▶ Run Sampler** to generate samples.")
     else:
-        sa = _fraud_float(_load_sample("sample_a").get("orders", pl.DataFrame()))
-        sb = _fraud_float(_load_sample("sample_b").get("orders", pl.DataFrame()))
-
-        if sa.is_empty() or sb.is_empty():
-            st.warning("Orders data missing for one or both samples.")
-        else:
-            metrics = {
-                "Orders":          (len(sa), len(sb)),
-                "GMV":             (sa["total_value"].sum(), sb["total_value"].sum()),
-                "Avg Order Value": (sa["total_value"].mean(), sb["total_value"].mean()),
-                "Customers":       (sa["customer_id"].n_unique(), sb["customer_id"].n_unique()),
-            }
-            st.subheader("Side-by-side KPIs")
-            cols = st.columns(len(metrics))
-            for col, (name, (va, vb)) in zip(cols, metrics.items()):
-                delta = f"{(vb - va) / va * 100:+.1f}%" if va else "—"
-                col.metric(f"{name}", f"{va:,.0f}", delta=f"B: {vb:,.0f} ({delta})")
-
-            # Channel mix comparison
-            st.markdown("**Channel Mix — A vs B**")
-            ca = (sa.group_by("channel").agg(pl.len().alias("count"))
-                  .with_columns(pl.lit("Sample A").alias("sample")))
-            cb = (sb.group_by("channel").agg(pl.len().alias("count"))
-                  .with_columns(pl.lit("Sample B").alias("sample")))
-            cmp_df = pl.concat([ca, cb]).to_pandas()
-            fig = px.bar(cmp_df, x="channel", y="count", color="sample",
-                         barmode="group", color_discrete_sequence=COLORS[:2])
-            fig.update_layout(height=320)
-            st.plotly_chart(fig, use_container_width=True)
-
-            # Status mix comparison
-            st.markdown("**Order Status — A vs B**")
-            sa2 = (sa.group_by("status").agg(pl.len().alias("count"))
-                   .with_columns(pl.lit("Sample A").alias("sample")))
-            sb2 = (sb.group_by("status").agg(pl.len().alias("count"))
-                   .with_columns(pl.lit("Sample B").alias("sample")))
-            cmp2 = pl.concat([sa2, sb2]).to_pandas()
-            fig2 = px.bar(cmp2, x="status", y="count", color="sample",
-                          barmode="group", color_discrete_sequence=COLORS[:2])
-            fig2.update_layout(height=320)
-            st.plotly_chart(fig2, use_container_width=True)
+        _render_sampler_results(
+            st.session_state["manifest"],
+            pathlib.Path(st.session_state["data_dir"]),
+        )

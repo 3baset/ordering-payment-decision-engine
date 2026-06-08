@@ -4,7 +4,7 @@ Decision Lambda — triggered by DynamoDB Streams INSERT events on oda-orders.
 Reads order + customer context, applies 3-factor scoring:
   1. Customer LTV tier  (RFM segment → weight 0.40)
   2. Fraud risk score   (inverted fraud_score → weight 0.35)
-  3. Payment risk       (method × basket size → weight 0.25)
+  3. Payment risk       (method × basket deviation from customer's 90-day avg → weight 0.25)
 
 Writes decision + full lineage back to the same record.
 """
@@ -13,7 +13,6 @@ import json
 import logging
 import os
 import time
-import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -27,7 +26,7 @@ dynamodb = boto3.resource("dynamodb")
 orders_table = dynamodb.Table(os.environ["ORDERS_TABLE"])
 _deserializer = TypeDeserializer()
 
-MODEL_VERSION = "v1.0"
+MODEL_VERSION = os.environ.get("MODEL_VERSION", "v1.0")
 
 # ── Scoring constants ────────────────────────────────────────────────────────
 
@@ -40,14 +39,16 @@ LTV_SCORES: dict[str, float] = {
 }
 
 METHOD_RISK: dict[str, float] = {
-    "credit": 1.00,
-    "direct_debit": 0.80,
-    "bank_transfer": 0.75,
-    "cod": 0.50,
-    "cash": 0.45,
+    "credit":        0.90,   # formal credit terms = established contractual relationship
+    "bank_transfer": 0.80,
+    "direct_debit":  0.80,
+    "cheque":        0.65,   # formal instrument; can bounce, but provides paper trail
+    "cod":           0.50,
+    "cash":          0.45,
 }
 
-BASKET_NORMALISER = 50_000.0   # EGP — orders above this treated as max risk
+# Fallback absolute threshold when no 90-day customer history is available
+BASKET_NORMALISER = 30_000.0
 APPROVE_THRESHOLD = 0.70
 REVIEW_THRESHOLD  = 0.40
 
@@ -65,16 +66,25 @@ def _score_order(order: dict) -> tuple[str, dict]:
     segment = str(order.get("customer_segment", "standard")).lower()
     ltv_score = LTV_SCORES.get(segment, 0.40)
 
-    # Factor 2 — Fraud risk (inverted: low fraud score → high approval score)
+    # Factor 2 — Fraud risk (inverted: low raw fraud → high approval score)
     raw_fraud = float(order.get("fraud_score", 0.5) or 0.5)
     raw_fraud = max(0.0, min(1.0, raw_fraud))   # clamp to [0,1]
     fraud_approval_score = 1.0 - raw_fraud
 
-    # Factor 3 — Payment method × basket value risk
+    # Factor 3 — Payment method × basket deviation from customer's 90-day average
     method = str(order.get("payment_method", "cod")).lower()
     method_score = METHOD_RISK.get(method, 0.50)
     basket = float(order.get("total_amount", 0) or 0)
-    basket_risk_penalty = min(basket / BASKET_NORMALISER, 1.0) * 0.30
+    avg_basket = float(order.get("avg_basket_90d", 0) or 0)
+
+    if avg_basket > 0:
+        # Relative penalty: how much does this order exceed the customer's typical size?
+        # Penalty scales from 0% (at avg) to 30% max (at 5× avg or above).
+        basket_deviation = max(basket / avg_basket - 1.0, 0.0)
+        basket_risk_penalty = min(basket_deviation / 4.0, 1.0) * 0.30
+    else:
+        basket_risk_penalty = min(basket / BASKET_NORMALISER, 1.0) * 0.30
+
     payment_score = method_score * (1.0 - basket_risk_penalty)
 
     composite = (
@@ -91,10 +101,10 @@ def _score_order(order: dict) -> tuple[str, dict]:
         outcome = "DECLINE"
 
     components = {
-        "ltv_score":       round(ltv_score, 4),
-        "fraud_score":     round(fraud_approval_score, 4),
-        "payment_score":   round(payment_score, 4),
-        "composite_score": round(composite, 4),
+        "ltv_score":                round(ltv_score, 4),
+        "fraud_approval_component": round(fraud_approval_score, 4),
+        "payment_score":            round(payment_score, 4),
+        "composite_score":          round(composite, 4),
     }
     return outcome, components
 
@@ -105,18 +115,18 @@ def _write_decision(order_id: str, outcome: str, components: dict) -> None:
         Key={"order_id": order_id},
         UpdateExpression=(
             "SET #d = :d, decision_at = :da, decision_score = :ds, "
-            "ltv_score = :ls, fraud_score = :fs, payment_score = :ps, "
+            "ltv_score = :ls, fraud_approval_component = :fac, payment_score = :ps, "
             "model_version = :mv"
         ),
         ExpressionAttributeNames={"#d": "decision"},
         ExpressionAttributeValues={
-            ":d":  outcome,
-            ":da": decision_at,
-            ":ds": Decimal(str(components["composite_score"])),
-            ":ls": Decimal(str(components["ltv_score"])),
-            ":fs": Decimal(str(components["fraud_score"])),
-            ":ps": Decimal(str(components["payment_score"])),
-            ":mv": MODEL_VERSION,
+            ":d":   outcome,
+            ":da":  decision_at,
+            ":ds":  Decimal(str(components["composite_score"])),
+            ":ls":  Decimal(str(components["ltv_score"])),
+            ":fac": Decimal(str(components["fraud_approval_component"])),
+            ":ps":  Decimal(str(components["payment_score"])),
+            ":mv":  MODEL_VERSION,
         },
         ConditionExpression="attribute_not_exists(decision)",  # idempotency guard
     )

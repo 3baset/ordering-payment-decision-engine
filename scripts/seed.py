@@ -127,6 +127,9 @@ def build_dynamo_items(limit: int | None, customer_map: dict, rfm_map: dict) -> 
             "rfm_f":            rfm.get("f_score", ""),
             "rfm_m":            rfm.get("m_score", ""),
             "rfm_monetary":     rfm.get("monetary", Decimal("0")),
+            # Customer's average basket over the RFM period — used by Decision Lambda
+            # for relative basket deviation scoring (replaces absolute EGP threshold)
+            "avg_basket_90d":   rfm.get("monetary", Decimal("0")),
         }
 
         # Strip empty strings (DynamoDB rejects them)
@@ -164,6 +167,8 @@ def write_to_dynamo(items: list[dict], table_name: str, dry_run: bool) -> None:
 
 
 def main() -> None:
+    # NOTE: Both Lambda ESMs use StartingPosition.LATEST — wait ≥30s after
+    # `cdk deploy` before running this script to ensure the stream iterator is established.
     parser = argparse.ArgumentParser(description="Seed DynamoDB from Sample A Parquet")
     parser.add_argument("--table",   default="oda-orders", help="DynamoDB table name")
     parser.add_argument("--limit",   type=int, default=None,  help="Max rows to seed (default: all)")
