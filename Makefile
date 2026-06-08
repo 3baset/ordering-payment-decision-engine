@@ -7,7 +7,8 @@
 #   TABLE=<name>   override DynamoDB table   (make seed TABLE=my-table)
 
 .DEFAULT_GOAL := help
-PYTHON        := python3
+VENV          := .venv
+PYTHON        := $(VENV)/bin/python3
 SIM_DIR       := simulation_engine
 DATA_DIR      := data
 SIM_OUTPUT    := $(SIM_DIR)/output/tables
@@ -32,27 +33,19 @@ help:
 	@echo "Variables: DAYS=<n>  LIMIT=<n>  TABLE=<name>"
 	@echo ""
 
-# ── Setup ─────────────────────────────────────────────────────────────────────
+# ── Venv + Setup ──────────────────────────────────────────────────────────────
+.PHONY: venv
+venv:
+	@test -d $(VENV) || python3 -m venv $(VENV)
+	@echo "Virtualenv ready at $(VENV)/"
+
 .PHONY: setup
-setup:
-	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install \
-	    polars==0.20.31 \
-	    streamlit \
-	    plotly \
-	    pyyaml \
-	    pydantic==2.7.1 \
-	    boto3 \
-	    pyarrow==16.1.0 \
-	    simpy==4.1.1 \
-	    faker==25.2.0 \
-	    hypothesis==6.102.6 \
-	    duckdb==0.10.3 \
-	    numpy==1.26.4 \
-	    pytest==8.2.0
-	$(PYTHON) -m pip install -r $(SIM_DIR)/requirements.txt
+setup: venv
+	$(PYTHON) -m pip install --upgrade pip --quiet
+	$(PYTHON) -m pip install -r requirements.txt
 	@echo ""
-	@echo "Setup complete. Run 'make sim' to generate synthetic data."
+	@echo "Setup complete. Activate with: source $(VENV)/bin/activate"
+	@echo "Run 'make sim' to generate synthetic data."
 
 # ── Simulation ────────────────────────────────────────────────────────────────
 .PHONY: sim
@@ -75,7 +68,7 @@ sample:
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 .PHONY: dashboard
 dashboard:
-	streamlit run sampler_dashboard.py
+	$(PYTHON) -m streamlit run sampler_dashboard.py
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 .PHONY: test

@@ -1,0 +1,14 @@
+boto3>=1.34
+pyarrow==16.1.0
+polars==0.20.31
+numpy==1.26.4
+pydantic==2.7.1
+pyyaml>=6.0
+streamlit>=1.35
+plotly>=5.20
+simpy==4.1.1
+faker==25.2.0
+hypothesis==6.102.6
+duckdb==0.10.3
+pytest==8.2.0
+pandas>=2.0
