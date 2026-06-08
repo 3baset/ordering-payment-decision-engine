@@ -40,6 +40,8 @@ cdk.context.json
 # Credentials — never commit
 *.pem
 *.key
+*accessKeys*.csv
+*credentials*.csv
 credentials
 .aws/credentials
 

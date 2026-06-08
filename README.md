@@ -380,10 +380,11 @@ See [`docs/cost-estimate.md`](docs/cost-estimate.md) for the full breakdown.
 | `infra/README.md` | AWS pipeline deploy guide, architecture detail, observability |
 | `docs/cost-estimate.md` | Free Tier breakdown per resource |
 | `docs/iam-setup.md` | Evaluator credential sharing via 1Password |
-| `claude-session.md` | Full Claude Code prompt log, diffs, and live-deploy findings |
-| `Synthetic Wholesale Commerce Simulation Engine.md` | Original simulation design brief |
-| `SIMULATION_V2_SPEC.md` | V2 enhancements spec |
-| `Addendum_3_Enhanced_Architecture.md` | Architecture decisions and trade-offs |
-| `FMCG_HORECA_Entity_Library_EGP.md` | Egyptian FMCG entity reference (products, pricing in EGP) |
-| `DATA_VALIDATION_NOTES.md` | Synthetic-data realism audit and known gaps |
+| `docs/Growth_Lead_Assessment_Brief.pdf` | Original case study brief |
+| `docs/claude-session.md` | Full Claude Code prompt log, diffs, and live-deploy findings |
+| `docs/Synthetic Wholesale Commerce Simulation Engine.md` | Original simulation design brief |
+| `docs/SIMULATION_V2_SPEC.md` | V2 enhancements spec |
+| `docs/Addendum_3_Enhanced_Architecture.md` | Architecture decisions and trade-offs |
+| `docs/FMCG_HORECA_Entity_Library_EGP.md` | Egyptian FMCG entity reference (products, pricing in EGP) |
+| `docs/DATA_VALIDATION_NOTES.md` | Synthetic-data realism audit and known gaps |
 | `simulation_engine/DATA_ANALYST_GUIDE.md` | Guide for analysts querying the raw tables |
