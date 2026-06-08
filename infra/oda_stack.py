@@ -226,6 +226,30 @@ class OdaStack(Stack):
                 ],
                 width=12,
             ),
+            cw.LogQueryWidget(
+                title="Decision Distribution (AUTO_APPROVE / MANUAL_REVIEW / DECLINE)",
+                log_group_names=["/aws/lambda/oda-decision"],
+                query_lines=[
+                    'filter event = "decision_made"',
+                    'stats count(*) as orders by outcome',
+                    'sort orders desc',
+                ],
+                view=cw.LogQueryVisualizationType.PIE,
+                width=12,
+                height=6,
+            ),
+            cw.LogQueryWidget(
+                title="Action Distribution (FULFILLED / ESCALATED / REJECTED)",
+                log_group_names=["/aws/lambda/oda-action"],
+                query_lines=[
+                    'filter event = "action_taken"',
+                    'stats count(*) as orders by action',
+                    'sort orders desc',
+                ],
+                view=cw.LogQueryVisualizationType.PIE,
+                width=12,
+                height=6,
+            ),
         )
 
         # ── Outputs ──────────────────────────────────────────────────────────
