@@ -26,7 +26,17 @@ import pyarrow.parquet as pq
 
 REPO_ROOT   = Path(__file__).parent.parent
 DATA_DIR    = REPO_ROOT / "data" / "sample_a"
+# Customers and rfm_scores are proportionally trimmed in the 100k-total sample,
+# leaving most order customer_ids uncovered. Fall back to the full simulation
+# output for these two small dimension tables so every order gets full context.
+SIM_TABLES  = REPO_ROOT / "simulation_engine" / "output" / "tables"
 BATCH_SIZE  = 25          # DynamoDB BatchWrite limit
+
+
+def _best_parquet(table: str) -> Path:
+    """Return simulation output path if it exists, else fall back to sample_a."""
+    full = SIM_TABLES / f"{table}.parquet"
+    return full if full.exists() else DATA_DIR / f"{table}.parquet"
 
 SEGMENT_MAP = {
     "premium":    "premium",
@@ -53,9 +63,15 @@ def _parse_payload(raw) -> dict:
 
 
 def load_tables() -> tuple[dict, dict]:
-    """Return (customer_map, rfm_map) keyed by customer_id."""
-    print("Loading customers …", flush=True)
-    cust_df = pq.read_table(DATA_DIR / "customers.parquet").to_pydict()
+    """Return (customer_map, rfm_map) keyed by customer_id.
+
+    Reads from the full simulation output tables when available (preferred),
+    because the 100k-total sample proportionally trims customers/rfm and would
+    leave most order customer_ids without context.
+    """
+    cust_path = _best_parquet("customers")
+    print(f"Loading customers from {cust_path.relative_to(REPO_ROOT)} …", flush=True)
+    cust_df = pq.read_table(cust_path).to_pydict()
     customer_map: dict[str, dict] = {}
     for i, cid in enumerate(cust_df["customer_id"]):
         customer_map[cid] = {
@@ -67,8 +83,9 @@ def load_tables() -> tuple[dict, dict]:
             "area_id":        str(cust_df["area_id"][i] or ""),
         }
 
-    print("Loading RFM scores …", flush=True)
-    rfm_df = pq.read_table(DATA_DIR / "rfm_scores.parquet").to_pydict()
+    rfm_path = _best_parquet("rfm_scores")
+    print(f"Loading RFM scores from {rfm_path.relative_to(REPO_ROOT)} …", flush=True)
+    rfm_df = pq.read_table(rfm_path).to_pydict()
     rfm_map: dict[str, dict] = {}
     for i, cid in enumerate(rfm_df["customer_id"]):
         # keep the most recent row per customer (last wins — data is ordered)
